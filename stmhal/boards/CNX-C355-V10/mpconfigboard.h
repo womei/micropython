@@ -12,9 +12,6 @@
 #define MICROPY_HW_ENABLE_TIMER     (1)
 #define MICROPY_HW_ENABLE_SERVO     (1)
 #define MICROPY_HW_ENABLE_DAC       (0)
-#define MICROPY_HW_ENABLE_SPI1      (1)
-#define MICROPY_HW_ENABLE_SPI2      (0)
-#define MICROPY_HW_ENABLE_SPI3      (1)
 #define MICROPY_HW_ENABLE_CAN       (0)
 
 // HSE is 12MHz
@@ -22,9 +19,12 @@
 #define MICROPY_HW_CLK_PLLN (196)
 #define MICROPY_HW_CLK_PLLP (RCC_PLLP_DIV2)
 #define MICROPY_HW_CLK_PLLQ (7)
+#define MICROPY_HW_CLK_LAST_FREQ (1)
 
 // does have a 32kHz crystal
 #define MICROPY_HW_RTC_USE_LSE (1)
+#define MICROPY_HW_RTC_USE_US (1)
+#define MICROPY_HW_RTC_USE_CALOUT (1)
 
 // UART config TODO check
 #define MICROPY_HW_UART1_PORT (GPIOB)
@@ -36,13 +36,25 @@
 #define MICROPY_HW_UART6_PORT (GPIOC)
 #define MICROPY_HW_UART6_PINS (GPIO_PIN_6 | GPIO_PIN_7)
 
-// TODO
+// I2C busses
+#define MICROPY_HW_I2C1_NAME "HA"
 #define MICROPY_HW_I2C1_SCL (pin_B6)
 #define MICROPY_HW_I2C1_SDA (pin_B7)
+#define MICROPY_HW_I2C2_NAME "HB"
+#define MICROPY_HW_I2C2_SCL (pin_B10)
+#define MICROPY_HW_I2C2_SDA (pin_B11)
 
-// TODO
-#define MICROPY_HW_I2C3_SCL (pin_A8)
-#define MICROPY_HW_I2C3_SDA (pin_B8)
+// SPI busses
+#define MICROPY_HW_SPI1_NAME "HA"
+#define MICROPY_HW_SPI1_NSS  (pin_A15)
+#define MICROPY_HW_SPI1_SCK  (pin_B3)
+#define MICROPY_HW_SPI1_MISO (pin_B4)
+#define MICROPY_HW_SPI1_MOSI (pin_B5)
+#define MICROPY_HW_SPI2_NAME "HB"
+#define MICROPY_HW_SPI2_NSS  (pin_B12)
+#define MICROPY_HW_SPI2_SCK  (pin_B13)
+#define MICROPY_HW_SPI2_MISO (pin_C2)
+#define MICROPY_HW_SPI2_MOSI (pin_C3)
 
 // USRSW has no pullup or pulldown; it is active low and broken out on a header
 #define MICROPY_HW_USRSW_PIN        (pin_C13)
