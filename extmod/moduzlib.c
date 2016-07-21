@@ -39,6 +39,9 @@
 #define DEBUG_printf(...) (void)0
 #endif
 
+/******************************************************************************/
+// decompress function
+
 STATIC int mod_uzlib_grow_buf(TINF_DATA *d, unsigned alloc_req) {
     if (alloc_req < 256) {
         alloc_req = 256;
@@ -62,7 +65,8 @@ STATIC mp_obj_t mod_uzlib_decompress(size_t n_args, const mp_obj_t *args) {
     decomp->destStart = m_new(byte, decomp->destSize);
     DEBUG_printf("uzlib: Initial out buffer: " UINT_FMT " bytes\n", decomp->destSize);
     decomp->destGrow = mod_uzlib_grow_buf;
-    decomp->source = bufinfo.buf;
+    decomp->source0_cur = bufinfo.buf;
+    decomp->source0_top = (const uint8_t*)bufinfo.buf + bufinfo.len;
 
     int st;
     if (n_args > 1 && MP_OBJ_SMALL_INT_VALUE(args[1]) < 0) {
@@ -83,9 +87,85 @@ STATIC mp_obj_t mod_uzlib_decompress(size_t n_args, const mp_obj_t *args) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_uzlib_decompress_obj, 1, 3, mod_uzlib_decompress);
 
+/******************************************************************************/
+// decompress object
+
+typedef struct _mp_obj_decompress_t {
+    mp_obj_base_t base;
+    vstr_t vstr;
+    TINF_DATA_STREAM decomp;
+} mp_obj_decompress_t;
+
+STATIC int stream_out(TINF_DATA_STREAM *d, const unsigned char *buf, unsigned int len) {
+    mp_obj_decompress_t *self = (mp_obj_decompress_t*)d->user_data;
+    //printf("out %p %d (on top of %d)\n", buf, len, (int)self->vstr.len);
+    vstr_add_strn(&self->vstr, (const char*)buf, len);
+    return 0;
+}
+
+STATIC mp_obj_t decompressobj_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
+    mp_arg_check_num(n_args, n_kw, 0, 1, false);
+    mp_obj_decompress_t *o = m_new_obj(mp_obj_decompress_t);
+    o->base.type = type;
+    if (n_args == 1 && mp_obj_get_int(args[0]) < 0) {
+        // raw stream
+    } else {
+        // stream with zlib header; not implemented
+        assert(0);
+    }
+    vstr_init(&o->vstr, 128);
+    tinf_stream_uncompress_init(&o->decomp);
+    o->decomp.stream_out = stream_out;
+    o->decomp.user_data = o;
+    //printf("state size = %d\n", (int)sizeof(mp_obj_decompress_t));
+    return MP_OBJ_FROM_PTR(o);
+}
+
+STATIC mp_obj_t decompressobj_decompress(mp_obj_t self_in, mp_obj_t data_in) {
+    mp_obj_decompress_t *self = (mp_obj_decompress_t*)self_in;
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(data_in, &bufinfo, MP_BUFFER_READ);
+    vstr_reset(&self->vstr);
+    int res = tinf_stream_uncompress_part(&self->decomp, bufinfo.buf, bufinfo.len, false);
+    if (res != TINF_OK && res != TINF_STREAM_CONTINUE) {
+        nlr_raise(mp_obj_new_exception_arg1(&mp_type_ValueError, MP_OBJ_NEW_SMALL_INT(res)));
+    }
+    return mp_obj_new_bytes((const byte*)self->vstr.buf, self->vstr.len);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(decompressobj_decompress_obj, decompressobj_decompress);
+
+STATIC mp_obj_t decompressobj_flush(mp_obj_t self_in) {
+    mp_obj_decompress_t *self = (mp_obj_decompress_t*)self_in;
+    vstr_reset(&self->vstr);
+    int res = tinf_stream_uncompress_part(&self->decomp, NULL, 0, true);
+    if (res != TINF_OK) {
+        nlr_raise(mp_obj_new_exception_arg1(&mp_type_ValueError, MP_OBJ_NEW_SMALL_INT(res)));
+    }
+    return mp_obj_new_bytes((const byte*)self->vstr.buf, self->vstr.len);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(decompressobj_flush_obj, decompressobj_flush);
+
+STATIC const mp_rom_map_elem_t decompressobj_locals_dict_table[] = {
+    { MP_ROM_QSTR(MP_QSTR_decompress), MP_ROM_PTR(&decompressobj_decompress_obj) },
+    { MP_ROM_QSTR(MP_QSTR_flush), MP_ROM_PTR(&decompressobj_flush_obj) },
+};
+
+STATIC MP_DEFINE_CONST_DICT(decompressobj_locals_dict, decompressobj_locals_dict_table);
+
+STATIC const mp_obj_type_t decompressobj_type = {
+    { &mp_type_type },
+    .name = MP_QSTR_decompress, // CPython calls it "Decompress", but we save on a qstr
+    .make_new = decompressobj_make_new,
+    .locals_dict = (void*)&decompressobj_locals_dict,
+};
+
+/******************************************************************************/
+// uzlib module
+
 STATIC const mp_rom_map_elem_t mp_module_uzlib_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_uzlib) },
     { MP_ROM_QSTR(MP_QSTR_decompress), MP_ROM_PTR(&mod_uzlib_decompress_obj) },
+    { MP_ROM_QSTR(MP_QSTR_decompressobj), MP_ROM_PTR(&decompressobj_type) },
 };
 
 STATIC MP_DEFINE_CONST_DICT(mp_module_uzlib_globals, mp_module_uzlib_globals_table);
