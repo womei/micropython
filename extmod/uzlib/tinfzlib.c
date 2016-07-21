@@ -40,7 +40,8 @@ int tinf_zlib_uncompress(void *dest, unsigned int *destLen,
    int res;
 
    /* initialise data */
-   d.source = (const unsigned char *)source;
+   d.source0_cur = (const unsigned char *)source;
+   d.source0_top = (const unsigned char *)source + sourceLen;
 
    d.destStart = (unsigned char *)dest;
    d.destRemaining = *destLen;
@@ -60,8 +61,8 @@ int tinf_zlib_uncompress_dyn(TINF_DATA *d, unsigned int sourceLen)
 
    /* -- get header bytes -- */
 
-   cmf = d->source[0];
-   flg = d->source[1];
+   cmf = d->source0_cur[0];
+   flg = d->source0_cur[1];
 
    /* -- check format -- */
 
@@ -79,12 +80,12 @@ int tinf_zlib_uncompress_dyn(TINF_DATA *d, unsigned int sourceLen)
 
    /* -- get adler32 checksum -- */
 
-   a32 =           d->source[sourceLen - 4];
-   a32 = 256*a32 + d->source[sourceLen - 3];
-   a32 = 256*a32 + d->source[sourceLen - 2];
-   a32 = 256*a32 + d->source[sourceLen - 1];
+   a32 =           d->source0_cur[sourceLen - 4];
+   a32 = 256*a32 + d->source0_cur[sourceLen - 3];
+   a32 = 256*a32 + d->source0_cur[sourceLen - 2];
+   a32 = 256*a32 + d->source0_cur[sourceLen - 1];
 
-   d->source += 2;
+   d->source0_cur += 2;
 
    /* -- inflate -- */
 

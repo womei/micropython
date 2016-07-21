@@ -27,6 +27,7 @@ extern "C" {
 #endif
 
 #define TINF_OK             0
+#define TINF_STREAM_CONTINUE 1
 #define TINF_DATA_ERROR    (-3)
 #define TINF_DEST_OVERFLOW (-4)
 
@@ -39,7 +40,12 @@ typedef struct {
 
 struct TINF_DATA;
 typedef struct TINF_DATA {
-   const unsigned char *source;
+   // consume source0 first, then source1
+   const unsigned char *source0_cur;
+   const unsigned char *source0_top;
+   const unsigned char *source1_cur;
+   const unsigned char *source1_top;
+
    unsigned int tag;
    unsigned int bitcount;
 
@@ -61,6 +67,25 @@ typedef struct TINF_DATA {
    TINF_TREE dtree; /* dynamic distance tree */
 } TINF_DATA;
 
+#define TINF_MAX_BYTES_DYN_TREE (924)
+#define TINF_WIN_SIZE (32768)
+
+struct TINF_DATA_STREAM;
+typedef struct TINF_DATA_STREAM {
+    TINF_DATA base;
+
+    int state_X;
+    int state_bfinal;
+    int source_finished;
+    unsigned char source_buf[TINF_MAX_BYTES_DYN_TREE];
+
+    unsigned int win_head, win_tail;
+    unsigned char win_buf[TINF_WIN_SIZE];
+
+    int (*stream_out)(struct TINF_DATA_STREAM *data, const unsigned char *buf, unsigned int len);
+
+    void *user_data;
+} TINF_DATA_STREAM;
 
 /* low-level API */
 
@@ -94,6 +119,11 @@ unsigned int TINFCC tinf_crc32(const void *data, unsigned int length);
 /* compression API */
 
 void TINFCC tinf_compress(void *data, const uint8_t *src, unsigned slen);
+
+/* stream decompress API */
+
+int tinf_stream_uncompress_init(TINF_DATA_STREAM *d);
+int tinf_stream_uncompress_part(TINF_DATA_STREAM *d, const void *src, unsigned int len, int last);
 
 #ifdef __cplusplus
 } /* extern "C" */

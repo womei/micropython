@@ -32,6 +32,7 @@
  *    any source distribution.
  */
 
+#include <string.h>
 #include "tinf.h"
 
 /* --------------------------------------------------- *
@@ -189,7 +190,12 @@ static int tinf_getbit(TINF_DATA *d)
    if (!d->bitcount--)
    {
       /* load next tag */
-      d->tag = *d->source++;
+      if (d->source0_cur < d->source0_top)
+      {
+         d->tag = *d->source0_cur++;
+      } else {
+         d->tag = *d->source1_cur++;
+      }
       d->bitcount = 7;
    }
 
@@ -219,6 +225,7 @@ static unsigned int tinf_read_bits(TINF_DATA *d, int num, int base)
 }
 
 /* given a data stream and a tree, decode a symbol */
+// consumes at most 16 bits from input source
 static int tinf_decode_symbol(TINF_DATA *d, TINF_TREE *t)
 {
    int sum = 0, cur = 0, len = 0;
@@ -239,6 +246,7 @@ static int tinf_decode_symbol(TINF_DATA *d, TINF_TREE *t)
 }
 
 /* given a data stream, decode dynamic trees from it */
+// maximum number of bits consumed: 5 + 5 + 4 + 19*3 + (286+32)*(16+7) = 7385
 static void tinf_decode_trees(TINF_DATA *d, TINF_TREE *lt, TINF_TREE *dt)
 {
    unsigned char lengths[288+32];
@@ -379,12 +387,12 @@ static int tinf_inflate_uncompressed_block(TINF_DATA *d)
    unsigned int i;
 
    /* get length */
-   length = d->source[1];
-   length = 256*length + d->source[0];
+   length = d->source0_cur[1];
+   length = 256*length + d->source0_cur[0];
 
    /* get one's complement of length */
-   invlength = d->source[3];
-   invlength = 256*invlength + d->source[2];
+   invlength = d->source0_cur[3];
+   invlength = 256*invlength + d->source0_cur[2];
 
    /* check length */
    if (length != (~invlength & 0x0000ffff)) return TINF_DATA_ERROR;
@@ -395,10 +403,10 @@ static int tinf_inflate_uncompressed_block(TINF_DATA *d)
       if (res) return res;
    }
 
-   d->source += 4;
+   d->source0_cur += 4;
 
    /* copy block */
-   for (i = length; i; --i) *d->dest++ = *d->source++;
+   for (i = length; i; --i) *d->dest++ = *d->source0_cur++;
    d->destRemaining -= length;
 
    /* make sure we start next block on a byte boundary */
@@ -454,7 +462,8 @@ int tinf_uncompress(void *dest, unsigned int *destLen,
    int res;
 
    /* initialise data */
-   d.source = (const unsigned char *)source;
+   d.source0_cur = (const unsigned char *)source;
+   d.source0_top = (const unsigned char *)source + sourceLen;
 
    d.destStart = (unsigned char *)dest;
    d.destRemaining = *destLen;
@@ -513,4 +522,196 @@ int tinf_uncompress_dyn(TINF_DATA *d)
    } while (!bfinal);
 
    return TINF_OK;
+}
+
+/* ------------------------------- *
+ * -- decompression of a stream -- *
+ * ------------------------------- */
+
+static void tinf_stream_output_put(TINF_DATA_STREAM *d, unsigned char b) {
+    d->win_buf[d->win_tail] = b;
+    d->win_tail = (d->win_tail + 1) % TINF_WIN_SIZE;
+    if (d->win_head == d->win_tail) {
+        // flush
+        d->stream_out(d, d->win_buf + d->win_head, TINF_WIN_SIZE - d->win_head);
+        d->stream_out(d, d->win_buf, d->win_tail);
+    }
+}
+
+// offset=0 is undefined
+// offset=1 is the last byte added
+static unsigned char tinf_stream_output_get(TINF_DATA_STREAM *d, unsigned int offset) {
+    return d->win_buf[(d->win_tail + TINF_WIN_SIZE - offset) % TINF_WIN_SIZE];
+}
+
+static int tinf_stream_have_bytes(TINF_DATA_STREAM *d, int n) {
+    return d->source_finished || (d->base.source0_top - d->base.source0_cur) + (d->base.source1_top - d->base.source1_cur) >= n;
+}
+
+/* given a stream and two trees, inflate a block of data */
+static int tinf_stream_inflate_block_data(TINF_DATA_STREAM *d, TINF_TREE *lt, TINF_TREE *dt) {
+    //printf("block %lu\n", (d->base.source0_top - d->base.source0_cur) + (d->base.source1_top - d->base.source1_cur));
+    for (;;) {
+        //printf("block %lu\n", (d->base.source0_top - d->base.source0_cur) + (d->base.source1_top - d->base.source1_cur));
+        // needs at most 16+5+16+13 = 50 bits for one iteration
+        if (!tinf_stream_have_bytes(d, 7)) {
+            return TINF_STREAM_CONTINUE;
+        }
+        //printf("block\n");
+
+        int sym = tinf_decode_symbol(&d->base, lt);
+        //printf("  sym=%d\n", sym);
+
+        /* check for end of block */
+        if (sym == 256) {
+            d->state_X = -1;
+            return TINF_OK;
+        }
+
+        if (sym < 256) {
+            // store byte verbatim
+            tinf_stream_output_put(d, sym);
+
+        } else {
+            // lookup data in decompressed-stream history
+
+            sym -= 257;
+
+            /* possibly get more bits from length code */
+            unsigned int length = tinf_read_bits(&d->base, length_bits[sym], length_base[sym]);
+
+            int dist = tinf_decode_symbol(&d->base, dt);
+
+            /* possibly get more bits from distance code */
+            unsigned int offs = tinf_read_bits(&d->base, dist_bits[dist], dist_base[dist]);
+
+            /* copy match */
+            for (unsigned int i = 0; i < length; ++i) {
+                // d->dest[i] = d->dest[(int)(i - offs)];
+                tinf_stream_output_put(d, tinf_stream_output_get(d, offs));
+            }
+        }
+    }
+}
+
+int tinf_stream_uncompress_init(TINF_DATA_STREAM *d) {
+    d->base.source0_cur = d->source_buf;
+    d->base.source0_top = d->source_buf;
+    d->base.bitcount = 0;
+    d->state_X = -1;
+    d->state_bfinal = 0;
+    d->win_head = 0;
+    d->win_tail = 0;
+    return TINF_OK;
+}
+
+int tinf_stream_uncompress_part(TINF_DATA_STREAM *d, const void *src, unsigned int len, int last) {
+    //printf("part %p %d %d\n", src, len, last);
+
+    d->base.source1_cur = src;
+    d->base.source1_top = (const unsigned char*)src + len;
+    d->source_finished = last;
+
+    //printf("part with source_len=(%ld %ld)\n", d->base.source0_top - d->base.source0_cur, d->base.source1_top - d->base.source1_cur);
+
+    for (;;) {
+        switch (d->state_X) {
+            case -1: {
+                // no active blocks
+
+                // check if we have already finished
+                if (d->state_bfinal) {
+                    break;
+                }
+
+                // If we got a middle part of the data then we need to have at least enough
+                // bytes to fully decode a dynamic tree.
+                if (!tinf_stream_have_bytes(d, TINF_MAX_BYTES_DYN_TREE)) {
+                    goto stream_continue;
+                }
+
+                /* read final block flag */
+                d->state_bfinal = tinf_getbit(&d->base);
+
+                /* read block type (2 bits) */
+                unsigned int btype = tinf_read_bits(&d->base, 2, 0);
+
+                /* decompress block */
+                switch (btype) {
+                    #if 0
+                    case 0:
+                        /* decompress uncompressed block */
+                        int res = tinf_inflate_uncompressed_block(d);
+                        break;
+                    #endif
+
+                    case 1:
+                        /* decompress block with fixed huffman trees */
+
+                        /* build fixed huffman trees */
+                        tinf_build_fixed_trees(&d->base.ltree, &d->base.dtree);
+                        d->state_X = 2;
+                        break;
+
+                    case 2:
+                        /* decompress block with dynamic huffman trees */
+
+                        /* decode trees from stream */
+                        tinf_decode_trees(&d->base, &d->base.ltree, &d->base.dtree);
+                        d->state_X = 2;
+                        break;
+
+                    default:
+                        return TINF_DATA_ERROR;
+                }
+                break;
+            }
+
+            case 2: {
+                // active Huffman block
+                int res = tinf_stream_inflate_block_data(d, &d->base.ltree, &d->base.dtree);
+                if (res == TINF_STREAM_CONTINUE) {
+                    goto stream_continue;
+                }
+                if (res != TINF_OK) {
+                    return TINF_DATA_ERROR;
+                }
+                break;
+            }
+
+            default:
+                assert(0);
+        }
+
+        if (d->state_X == -1 && d->state_bfinal) {
+            if (d->win_tail > d->win_head) {
+                d->stream_out(d, d->win_buf + d->win_head, d->win_tail - d->win_head);
+            } else if (d->win_tail < d->win_head) {
+                d->stream_out(d, d->win_buf + d->win_head, TINF_WIN_SIZE - d->win_head);
+                d->stream_out(d, d->win_buf, d->win_tail);
+            }
+            d->win_head = d->win_tail;
+            return TINF_OK;
+        }
+    }
+
+stream_continue:
+    //printf("cont remain=%lu win=(%d %d)\n", (d->base.source0_top - d->base.source0_cur) + (d->base.source1_top - d->base.source1_cur), d->win_head, d->win_tail);
+    if (d->win_tail > d->win_head) {
+        d->stream_out(d, d->win_buf + d->win_head, d->win_tail - d->win_head);
+    } else if (d->win_tail < d->win_head) {
+        d->stream_out(d, d->win_buf + d->win_head, TINF_WIN_SIZE - d->win_head);
+        d->stream_out(d, d->win_buf, d->win_tail);
+    }
+    d->win_head = d->win_tail;
+
+    // put all unused data in source_buf, with source0 pointing to it
+    unsigned int len0 = d->base.source0_top - d->base.source0_cur;
+    unsigned int len1 = d->base.source1_top - d->base.source1_cur;
+    memmove(d->source_buf, d->base.source0_cur, len0);
+    memcpy(d->source_buf + len0, d->base.source1_cur, len1);
+    d->base.source0_cur = d->source_buf;
+    d->base.source0_top = d->source_buf + len0 + len1;
+    //printf("ret cont with source_len=(%ld %ld)\n", d->base.source0_top - d->base.source0_cur, d->base.source1_top - d->base.source1_cur);
+    return TINF_STREAM_CONTINUE;
 }
