@@ -37,7 +37,7 @@ script:
   - make -C unix
   - make -C unix nanbox
   - make -C bare-arm
-  - make -C qemu-arm test
+  - make -C qemu-arm V=1 test
   - make -C stmhal
   - make -C stmhal -B MICROPY_PY_WIZNET5K=1 MICROPY_PY_CC3K=1
   - make -C stmhal BOARD=STM32F4DISC
