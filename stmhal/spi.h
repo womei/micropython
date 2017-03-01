@@ -41,4 +41,6 @@ SPI_HandleTypeDef *spi_get_handle(mp_obj_t o);
 
 struct _pyb_spi_obj_t;
 const struct _pyb_spi_obj_t *spi_get_obj_from_handle(SPI_HandleTypeDef *spi);
+void spi_set_params(SPI_HandleTypeDef *spi, uint32_t prescale, int32_t baudrate,
+    int32_t polarity, int32_t phase, int32_t bits, int32_t firstbit);
 void spi_transfer(const struct _pyb_spi_obj_t *self, size_t len, const uint8_t *src, uint8_t *dest, uint32_t timeout);
