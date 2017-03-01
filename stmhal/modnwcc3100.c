@@ -66,25 +66,10 @@ STATIC const pin_obj_t *PIN_IRQ = NULL;
 // External CC3100
 Fd_t spi_Open(char* pIfName, unsigned long flags)
 {
-    mp_uint_t spi_clock, br_prescale;
-    spi_clock = HAL_RCC_GetPCLK1Freq();
-    br_prescale = spi_clock / 20000000; //20MHz
-    if (br_prescale <= 2) { SPI_HANDLE->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2; }
-    else if (br_prescale <= 4) { SPI_HANDLE->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4; }
-    else if (br_prescale <= 8) { SPI_HANDLE->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8; }
-    else if (br_prescale <= 16) { SPI_HANDLE->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16; }
-    else if (br_prescale <= 32) { SPI_HANDLE->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32; }
-    else if (br_prescale <= 64) { SPI_HANDLE->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64; }
-    else if (br_prescale <= 128) { SPI_HANDLE->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128; }
-    else { SPI_HANDLE->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256; }
-
+    spi_set_params(SPI_HANDLE, -1, 20000000, 0, 0, 8, SPI_FIRSTBIT_MSB);
     SPI_HANDLE->Init.Mode = SPI_MODE_MASTER;
-    SPI_HANDLE->Init.CLKPolarity = SPI_POLARITY_LOW;
-    SPI_HANDLE->Init.CLKPhase = SPI_PHASE_1EDGE;
     SPI_HANDLE->Init.Direction = SPI_DIRECTION_2LINES;
-    SPI_HANDLE->Init.DataSize = SPI_DATASIZE_8BIT;
     SPI_HANDLE->Init.NSS = SPI_NSS_SOFT;
-    SPI_HANDLE->Init.FirstBit = SPI_FIRSTBIT_MSB;
     SPI_HANDLE->Init.TIMode = SPI_TIMODE_DISABLED;
     SPI_HANDLE->Init.CRCCalculation = SPI_CRCCALCULATION_DISABLED;
     SPI_HANDLE->Init.CRCPolynomial = 0;
