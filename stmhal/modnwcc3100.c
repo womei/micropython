@@ -249,11 +249,6 @@ STATIC int cc3100_gethostbyname(mp_obj_t nic, const char *name, mp_uint_t len, u
         return rc;
     }
 
-    if (ip == 0) {
-        // unknown host
-        return ENOENT;
-    }
-
     out_ip[0] = ip >> 24;
     out_ip[1] = ip >> 16;
     out_ip[2] = ip >> 8;
