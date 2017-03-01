@@ -15,6 +15,6 @@ void STM32L475_EMFBADGE_board_early_init(void) {
     GPIO_set_pin(MICROPY_HW_CC3100_HIB.gpio, MICROPY_HW_CC3100_HIB.pin_mask);
     */
     mp_hal_pin_output(&MICROPY_HW_CC3100_HIB);
-    mp_hal_pin_high(&MICROPY_HW_CC3100_HIB);
+    mp_hal_pin_low(&MICROPY_HW_CC3100_HIB);
     #endif
 }
