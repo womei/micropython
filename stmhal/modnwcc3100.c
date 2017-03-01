@@ -422,7 +422,7 @@ STATIC mp_obj_t cc3100_sleep(mp_obj_t self_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(cc3100_sleep_obj, cc3100_sleep);
 
-STATIC mp_obj_t cc3100_list_aps(mp_obj_t self_in) {
+STATIC mp_obj_t cc3100_scan(mp_obj_t self_in) {
   /* Enable scan */ //TODO: check if already enabled
   #define SL_SCAN_ENABLE 1 
   int retVal;
@@ -476,24 +476,17 @@ STATIC mp_obj_t cc3100_list_aps(mp_obj_t self_in) {
 } while (runningIdx > 0);
   mp_obj_t returnVal = mp_obj_new_list(0, NULL);
   for(int i = 0; i < idx; i++) {
-    mp_obj_t entry = mp_obj_new_dict(4);
-    mp_obj_dict_store(entry,
-                      mp_obj_new_str("ssid", strlen("ssid"), false),
-                      mp_obj_new_str((const char*)netEntries[i].ssid, netEntries[i].ssid_len, false));
-    mp_obj_dict_store(entry,
-                      mp_obj_new_str("bssid", strlen("bssid"), false),
-                      mp_obj_new_bytearray(SL_BSSID_LENGTH,netEntries[i].bssid));
-    mp_obj_dict_store(entry,
-                      mp_obj_new_str("rssi", strlen("rssi"), false),
-                      MP_OBJ_NEW_SMALL_INT(netEntries[i].rssi));
-    mp_obj_dict_store(entry,
-                      mp_obj_new_str("security", strlen("security"), false),
-                      MP_OBJ_NEW_SMALL_INT(netEntries[i].sec_type));
-    mp_obj_list_append(returnVal, entry);
+    mp_obj_t tuple[5];
+    tuple[0] = mp_obj_new_str((const char*)netEntries[i].ssid, netEntries[i].ssid_len, false);
+    tuple[1] = mp_obj_new_bytes(netEntries[i].bssid, SL_BSSID_LENGTH);
+    tuple[2] = MP_OBJ_NEW_SMALL_INT(0); // channel not available on CC3100
+    tuple[3] = MP_OBJ_NEW_SMALL_INT(netEntries[i].rssi);
+    tuple[4] = MP_OBJ_NEW_SMALL_INT(netEntries[i].sec_type);
+    mp_obj_list_append(returnVal, mp_obj_new_tuple(5, tuple));
   }
   return returnVal;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(cc3100_list_aps_obj, cc3100_list_aps);
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(cc3100_scan_obj, cc3100_scan);
 
 STATIC mp_obj_t cc3100_get_rssi(mp_obj_t self_in) {
   SlGetRxStatResponse_t rxStatResp;
@@ -912,7 +905,7 @@ STATIC const mp_map_elem_t cc3100_locals_dict_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_ifconfig),        (mp_obj_t)&cc3100_ifconfig_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_update),          (mp_obj_t)&cc3100_update_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_sleep),           (mp_obj_t)&cc3100_sleep_obj },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_list_aps),        (mp_obj_t)&cc3100_list_aps_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_scan),            (mp_obj_t)&cc3100_scan_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_get_rssi),        (mp_obj_t)&cc3100_get_rssi_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_settime),         (mp_obj_t)&cc3100_settime_obj},
     { MP_OBJ_NEW_QSTR(MP_QSTR_setcountry),      (mp_obj_t)&cc3100_setcountry_obj},
