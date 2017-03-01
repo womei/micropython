@@ -372,9 +372,7 @@ STATIC mp_obj_t cc3100_is_connected(mp_obj_t self_in) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(cc3100_is_connected_obj, cc3100_is_connected);
 
 STATIC mp_obj_t cc3100_ifconfig(mp_obj_t self_in) {
-    // These are separate calls on the cc3100
-    // mac
-    _i32 retVal;
+    /* code to get MAC address
     unsigned char dummy;
     unsigned char mac[6];
     unsigned char len = sizeof(mac);
@@ -389,28 +387,22 @@ STATIC mp_obj_t cc3100_ifconfig(mp_obj_t self_in) {
         nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_OSError, "Error %d getting MAC address", retVal));
     }
     //return mp_const_none;
+    */
 
     unsigned char iplen = sizeof(SlNetCfgIpV4Args_t);
     unsigned char dhcpIsOn = 0;
     SlNetCfgIpV4Args_t ipV4 = {0};
-    VSTR_FIXED(ip_vstr, 15);
-    VSTR_FIXED(mask_vstr, 15);
-    VSTR_FIXED(gw_vstr, 15);
-    VSTR_FIXED(dns_vstr, 15);
-    retVal = sl_NetCfgGet(SL_IPV4_STA_P2P_CL_GET_INFO,&dhcpIsOn,&iplen,(unsigned char *)&ipV4);
-    if(retVal == 0) {
-      vstr_printf(&ip_vstr, "%03d.%03d.%03d.%03d", SL_IPV4_BYTE(ipV4.ipV4,3), SL_IPV4_BYTE(ipV4.ipV4,2), SL_IPV4_BYTE(ipV4.ipV4,1), SL_IPV4_BYTE(ipV4.ipV4,0));
-      vstr_printf(&mask_vstr, "%03d.%03d.%03d.%03d", SL_IPV4_BYTE(ipV4.ipV4Mask,3), SL_IPV4_BYTE(ipV4.ipV4Mask,2), SL_IPV4_BYTE(ipV4.ipV4Mask,1), SL_IPV4_BYTE(ipV4.ipV4Mask,0));
-      vstr_printf(&gw_vstr, "%03d.%03d.%03d.%03d", SL_IPV4_BYTE(ipV4.ipV4Gateway,3), SL_IPV4_BYTE(ipV4.ipV4Gateway,2), SL_IPV4_BYTE(ipV4.ipV4Gateway,1), SL_IPV4_BYTE(ipV4.ipV4Gateway,0));
-      vstr_printf(&dns_vstr, "%03d.%03d.%03d.%03d", SL_IPV4_BYTE(ipV4.ipV4DnsServer,3), SL_IPV4_BYTE(ipV4.ipV4DnsServer,2), SL_IPV4_BYTE(ipV4.ipV4DnsServer,1), SL_IPV4_BYTE(ipV4.ipV4DnsServer,0));
-      tuple[0] = mp_obj_new_str(ip_vstr.buf, ip_vstr.len, false);
-      tuple[1] = mp_obj_new_str(mask_vstr.buf, mask_vstr.len, false);
-      tuple[2] = mp_obj_new_str(gw_vstr.buf, gw_vstr.len, false);
-      tuple[3] = mp_obj_new_str(dns_vstr.buf, dns_vstr.len, false);
+    _i32 retVal = sl_NetCfgGet(SL_IPV4_STA_P2P_CL_GET_INFO,&dhcpIsOn,&iplen,(unsigned char *)&ipV4);
+    if (retVal == 0) {
+        mp_obj_t tuple[4];
+        tuple[0] = netutils_format_ipv4_addr((uint8_t*)&ipV4.ipV4, NETUTILS_LITTLE);
+        tuple[1] = netutils_format_ipv4_addr((uint8_t*)&ipV4.ipV4Mask, NETUTILS_LITTLE);
+        tuple[2] = netutils_format_ipv4_addr((uint8_t*)&ipV4.ipV4Gateway, NETUTILS_LITTLE);
+        tuple[3] = netutils_format_ipv4_addr((uint8_t*)&ipV4.ipV4DnsServer, NETUTILS_LITTLE);
+        return mp_obj_new_tuple(MP_ARRAY_SIZE(tuple), tuple);
     } else {
         nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_OSError, "Error %d getting IP address", retVal));
     }
-    return mp_obj_new_tuple(MP_ARRAY_SIZE(tuple), tuple);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(cc3100_ifconfig_obj, cc3100_ifconfig);
 
