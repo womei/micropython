@@ -93,12 +93,7 @@ Fd_t spi_Open(char* pIfName, unsigned long flags)
     spi_init(SPI_HANDLE, false);
 
     // CS Pin
-    GPIO_InitTypeDef GPIO_InitStructure;
-    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStructure.Speed = GPIO_SPEED_HIGH;
-    GPIO_InitStructure.Pull = GPIO_NOPULL;
-    GPIO_InitStructure.Pin = PIN_CS->pin_mask;;
-    HAL_GPIO_Init(PIN_CS->gpio, &GPIO_InitStructure);
+    mp_hal_pin_output(PIN_CS);
     mp_hal_pin_high(PIN_CS);
 
     HAL_Delay(50);
@@ -164,20 +159,10 @@ int spi_Write(Fd_t Fd, unsigned char* pBuff, int Len)
 void NwpPowerOnPreamble(void){
 
 // IRQ pin
-    GPIO_InitTypeDef init;
-    init.Pin = PIN_IRQ->pin_mask;
-    init.Mode = GPIO_MODE_INPUT;
-    init.Pull = GPIO_PULLDOWN;
-    init.Speed = GPIO_SPEED_FAST;
-    HAL_GPIO_Init(PIN_IRQ->gpio, &init);
+    mp_hal_pin_config(PIN_IRQ, MP_HAL_PIN_MODE_INPUT, MP_HAL_PIN_PULL_DOWN, 0);
 
 //nHib pin
-    GPIO_InitTypeDef GPIO_InitStructure;
-    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStructure.Speed = GPIO_SPEED_HIGH;
-    GPIO_InitStructure.Pull = GPIO_NOPULL;
-    GPIO_InitStructure.Pin = PIN_EN->pin_mask;;
-    HAL_GPIO_Init(PIN_EN->gpio, &GPIO_InitStructure);
+    mp_hal_pin_output(PIN_EN);
     mp_hal_pin_low(PIN_EN);
 }
 void NwpPowerOn(void){
