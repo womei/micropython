@@ -300,6 +300,8 @@ STATIC mp_obj_t socket_setsockopt(mp_uint_t n_args, const mp_obj_t *args) {
         optlen = bufinfo.len;
     }
 
+    // check if we need to select a NIC
+    socket_select_nic(self, 0);
     int _errno;
     if (self->nic_type->setsockopt(self, level, opt, optval, optlen, &_errno) != 0) {
         mp_raise_OSError(_errno);
