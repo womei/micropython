@@ -403,7 +403,16 @@ STATIC HAL_StatusTypeDef spi_wait_dma_finished(SPI_HandleTypeDef *spi, uint32_t 
     return HAL_OK;
 }
 
-STATIC void spi_transfer(const pyb_spi_obj_t *self, size_t len, const uint8_t *src, uint8_t *dest, uint32_t timeout) {
+const pyb_spi_obj_t *spi_get_obj_from_handle(SPI_HandleTypeDef *spi) {
+    for (size_t i = 0; i < MP_ARRAY_SIZE(pyb_spi_obj); ++i) {
+        if (pyb_spi_obj[i].spi == spi) {
+            return &pyb_spi_obj[i];
+        }
+    }
+    return NULL;
+}
+
+void spi_transfer(const pyb_spi_obj_t *self, size_t len, const uint8_t *src, uint8_t *dest, uint32_t timeout) {
     // Note: there seems to be a problem sending 1 byte using DMA the first
     // time directly after the SPI/DMA is initialised.  The cause of this is
     // unknown but we sidestep the issue by using polling for 1 byte transfer.

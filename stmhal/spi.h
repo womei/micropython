@@ -38,3 +38,7 @@ void spi_init0(void);
 void spi_init(SPI_HandleTypeDef *spi, bool enable_nss_pin);
 void spi_deinit(SPI_HandleTypeDef *spi);
 SPI_HandleTypeDef *spi_get_handle(mp_obj_t o);
+
+struct _pyb_spi_obj_t;
+const struct _pyb_spi_obj_t *spi_get_obj_from_handle(SPI_HandleTypeDef *spi);
+void spi_transfer(const struct _pyb_spi_obj_t *self, size_t len, const uint8_t *src, uint8_t *dest, uint32_t timeout);
