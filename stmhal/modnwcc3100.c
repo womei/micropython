@@ -126,37 +126,25 @@ HAL_StatusTypeDef spi_wait_dma_finished(SPI_HandleTypeDef *spi, uint32_t timeout
 
 int spi_TransmitReceive(unsigned char* txBuff, unsigned char* rxBuff, int Len)
 {
-    HAL_StatusTypeDef status;
     extint_disable(PIN_IRQ->pin);
     mp_hal_pin_low(PIN_CS);
-    if (Len == 1 || query_irq() == IRQ_STATE_DISABLED) {
-        status = HAL_SPI_TransmitReceive(SPI_HANDLE, txBuff, rxBuff, Len, 0x1000);
-    } else {
-        DMA_HandleTypeDef tx_dma, rx_dma;
-        dma_init(&tx_dma, &dma_SPI_1_TX, SPI_HANDLE);
-        SPI_HANDLE->hdmatx = &tx_dma;
-        dma_init(&rx_dma, &dma_SPI_1_RX, SPI_HANDLE);
-        SPI_HANDLE->hdmarx = &rx_dma;
-
-        status = HAL_SPI_TransmitReceive_DMA(SPI_HANDLE, txBuff, rxBuff, Len);
-        if (status == HAL_OK) {
-            status = spi_wait_dma_finished(SPI_HANDLE, 0x1000);
-        }
-        dma_deinit(&dma_SPI_1_TX);
-        dma_deinit(&dma_SPI_1_RX);
+    if (txBuff == NULL) {
+        // It seems that "receive only" SPI transfer does not work, at least
+        // not on the STM32L475.  So for such a case we do a full tx+rx, with
+        // the tx buffer being the same as the rx buffer (since we don't care
+        // what data is actually sent).
+        txBuff = rxBuff;
     }
+    spi_transfer(spi_get_obj_from_handle(SPI_HANDLE), Len, txBuff, rxBuff, 0x1000);
     mp_hal_pin_high(PIN_CS);
     extint_enable(PIN_IRQ->pin);
-    return status;
+    return HAL_OK;
 }
 
 int spi_Read(Fd_t Fd, unsigned char* pBuff, int Len)
 {
     HAL_StatusTypeDef status;
-    unsigned char* dummy;
-    dummy = malloc(sizeof(unsigned char)*Len);
-    status = spi_TransmitReceive(dummy, pBuff, Len);
-    free(dummy);
+    status = spi_TransmitReceive(NULL, pBuff, Len);
     if (status != HAL_OK)
         return(0);
 
@@ -166,10 +154,7 @@ int spi_Read(Fd_t Fd, unsigned char* pBuff, int Len)
 int spi_Write(Fd_t Fd, unsigned char* pBuff, int Len)
 {
     HAL_StatusTypeDef status;
-    unsigned char* dummy;
-    dummy = malloc(sizeof(unsigned char)*Len);
-    status = spi_TransmitReceive(pBuff, dummy, Len);
-    free(dummy);
+    status = spi_TransmitReceive(pBuff, NULL, Len);
     if (status != HAL_OK)
         return(0);
 
