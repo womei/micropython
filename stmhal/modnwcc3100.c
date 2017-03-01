@@ -106,7 +106,6 @@ HAL_StatusTypeDef spi_wait_dma_finished(SPI_HandleTypeDef *spi, uint32_t timeout
 
 int spi_TransmitReceive(unsigned char* txBuff, unsigned char* rxBuff, int Len)
 {
-    extint_disable(PIN_IRQ->pin);
     mp_hal_pin_low(PIN_CS);
     if (txBuff == NULL) {
         // It seems that "receive only" SPI transfer does not work, at least
@@ -117,7 +116,6 @@ int spi_TransmitReceive(unsigned char* txBuff, unsigned char* rxBuff, int Len)
     }
     spi_transfer(spi_get_obj_from_handle(SPI_HANDLE), Len, txBuff, rxBuff, 0x1000);
     mp_hal_pin_high(PIN_CS);
-    extint_enable(PIN_IRQ->pin);
     return HAL_OK;
 }
 
@@ -183,11 +181,18 @@ int NwpRegisterInterruptHandler(SL_P_EVENT_HANDLER InterruptHdl, void* pValue){
 }
 
 void NwpMaskInterrupt(){
-    extint_disable(PIN_IRQ->pin);
+    // only needed if IRQ is level-triggered
 }
 
 void NwpUnMaskInterrupt(){
-    extint_enable(PIN_IRQ->pin);
+    // It's possible that the CC3100 IRQ pin remains high because it still has
+    // a pending event to proccess.  One situation when this can happen is when
+    // a new event becomes available while doing a read of the previous event.
+    // In that case we never get an edge and so must check if the IRQ line is
+    // still high, and if so register a callback.
+    if (mp_hal_pin_read(PIN_IRQ)) {
+        cc3100_callback(MP_OBJ_NEW_SMALL_INT(0));
+    }
 }
 
 // *** END simplelink interface functions
