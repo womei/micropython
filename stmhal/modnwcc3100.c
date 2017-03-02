@@ -91,19 +91,6 @@ int spi_Close(Fd_t Fd)
     return 0;
 }
 
-HAL_StatusTypeDef spi_wait_dma_finished(SPI_HandleTypeDef *spi, uint32_t timeout) {
-    // Note: we can't use WFI to idle in this loop because the DMA completion
-    // interrupt may occur before the WFI.  Hence we miss it and have to wait
-    // until the next sys-tick (up to 1ms).
-    uint32_t start = HAL_GetTick();
-    while (HAL_SPI_GetState(spi) != HAL_SPI_STATE_READY) {
-        if (HAL_GetTick() - start >= timeout) {
-            return HAL_TIMEOUT;
-        }
-    }
-    return HAL_OK;
-}
-
 int spi_TransmitReceive(unsigned char* txBuff, unsigned char* rxBuff, int Len)
 {
     mp_hal_pin_low(PIN_CS);
