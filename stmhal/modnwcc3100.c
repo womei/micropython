@@ -740,15 +740,6 @@ STATIC const cc3100_obj_t cc3100_obj = {{(mp_obj_type_t*)&mod_network_nic_type_c
 
 STATIC mp_obj_t cc3100_make_new(const mp_obj_type_t *type, mp_uint_t n_args, mp_uint_t n_kw, const mp_obj_t *args) {
 
-    wlan_connected = false;
-    ip_obtained    = false;
-
-    uint8_t val = 1;
-    uint8_t power = 0;
-    int32_t retVal = -1;
-    int32_t mode = -1;
-    static const unsigned char defaultcountry[2] = "EU";
-
     // Either defaults, or SPI Obj, IRQ Pin, nHIB Pin
     mp_arg_check_num(n_args, n_kw, 0, 4, false);
 
@@ -770,6 +761,25 @@ STATIC mp_obj_t cc3100_make_new(const mp_obj_type_t *type, mp_uint_t n_args, mp_
        PIN_EN = pin_find(args[2]);
        PIN_IRQ = pin_find(args[3]);
     }
+
+    if (cc3100_IrqHandler && wlan_connected && ip_obtained) {
+        // Here we assume the driver was already started and just reinitialise the
+        // low-level interface.
+        mp_hal_pin_config(PIN_IRQ, MP_HAL_PIN_MODE_INPUT, MP_HAL_PIN_PULL_DOWN, 0);
+        mp_hal_pin_output(PIN_EN);
+        spi_Open(NULL, 0);
+        NwpRegisterInterruptHandler(cc3100_IrqHandler, NULL);
+        goto quick_start;
+    }
+
+    wlan_connected = false;
+    ip_obtained    = false;
+
+    uint8_t val = 1;
+    uint8_t power = 0;
+    int32_t retVal = -1;
+    int32_t mode = -1;
+    static const unsigned char defaultcountry[2] = "EU";
 
 
     mode = sl_Start(NULL,NULL,NULL);
@@ -858,6 +868,9 @@ STATIC mp_obj_t cc3100_make_new(const mp_obj_type_t *type, mp_uint_t n_args, mp_
         LOG_ERR("");
         nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Failed to init cc31k module"));
     }
+
+quick_start:
+
     // register with network module
     mod_network_register_nic((mp_obj_t)&cc3100_obj);
     return (mp_obj_t)&cc3100_obj;
