@@ -349,14 +349,10 @@ STATIC mp_obj_t cc3100_disconnect(mp_obj_t self_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(cc3100_disconnect_obj, cc3100_disconnect);
 
-STATIC mp_obj_t cc3100_is_connected(mp_obj_t self_in) {
-
-    if (wlan_connected && ip_obtained) {
-        return mp_const_true;
-    }
-    return mp_const_false;
+STATIC mp_obj_t cc3100_isconnected(mp_obj_t self_in) {
+    return mp_obj_new_bool(wlan_connected && ip_obtained);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(cc3100_is_connected_obj, cc3100_is_connected);
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(cc3100_isconnected_obj, cc3100_isconnected);
 
 STATIC mp_obj_t cc3100_ifconfig(mp_obj_t self_in) {
     /* code to get MAC address
@@ -888,7 +884,7 @@ STATIC mp_obj_t cc3100_make_new(const mp_obj_type_t *type, mp_uint_t n_args, mp_
 STATIC const mp_map_elem_t cc3100_locals_dict_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_connect),         (mp_obj_t)&cc3100_connect_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_disconnect),      (mp_obj_t)&cc3100_disconnect_obj },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_is_connected),    (mp_obj_t)&cc3100_is_connected_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_isconnected),    (mp_obj_t)&cc3100_isconnected_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_ifconfig),        (mp_obj_t)&cc3100_ifconfig_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_update),          (mp_obj_t)&cc3100_update_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_sleep),           (mp_obj_t)&cc3100_sleep_obj },
