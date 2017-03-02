@@ -355,23 +355,6 @@ STATIC mp_obj_t cc3100_isconnected(mp_obj_t self_in) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(cc3100_isconnected_obj, cc3100_isconnected);
 
 STATIC mp_obj_t cc3100_ifconfig(mp_obj_t self_in) {
-    /* code to get MAC address
-    unsigned char dummy;
-    unsigned char mac[6];
-    unsigned char len = sizeof(mac);
-
-    mp_obj_t tuple[7];
-    VSTR_FIXED(mac_vstr, 18);
-    retVal = sl_NetCfgGet(SL_MAC_ADDRESS_GET, &dummy, &len, mac);
-    if (retVal == 0) {
-      vstr_printf(&mac_vstr, "%02x:%02x:%02x:%02x:%02x:%02x", mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
-      tuple[5] = mp_obj_new_str(mac_vstr.buf, mac_vstr.len, false);
-    } else {
-        nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_OSError, "Error %d getting MAC address", retVal));
-    }
-    //return mp_const_none;
-    */
-
     unsigned char iplen = sizeof(SlNetCfgIpV4Args_t);
     unsigned char dhcpIsOn = 0;
     SlNetCfgIpV4Args_t ipV4 = {0};
