@@ -1,7 +1,7 @@
 /*
  * trace.h - CC31xx/CC32xx Host Driver Implementation
  *
- * Copyright (C) 2014 Texas Instruments Incorporated - http://www.ti.com/ 
+ * Copyright (C) 2015 Texas Instruments Incorporated - http://www.ti.com/ 
  * 
  * 
  *  Redistribution and use in source and binary forms, with or without 
@@ -52,13 +52,36 @@ extern "C" {
 
 #define SL_SYNC_SCAN_THRESHOLD  (( _u32 )2000)
 
-#define _SL_ASSERT(expr)            { ASSERT(expr); }
+#ifdef SL_TINY_EXT
+#define _SlDrvAssert(line )  { while(1); }  
+#else
+#define _SlDrvAssert( )  { _SlDriverHandleError(SL_DEVICE_DRIVER_ASSERT_ERROR_EVENT, 0, 0); }
+#endif
+
+#define _SL_ASSERT(expr)            { if(!(expr)){ \
+    _SlDrvAssert(); } \
+}
 #define _SL_ERROR(expr, error)      { if(!(expr)){return (error); } }
 
 #define SL_HANDLING_ASSERT          2
 #define SL_HANDLING_ERROR           1
 #define SL_HANDLING_NONE            0
 
+
+#ifndef SL_TINY_EXT
+
+#if 1
+#define SL_SELF_COND_HANDLING       SL_HANDLING_ERROR
+#define SL_PROTOCOL_HANDLING        SL_HANDLING_ERROR
+#define SL_DRV_RET_CODE_HANDLING    SL_HANDLING_ERROR
+#define SL_NWP_IF_HANDLING          SL_HANDLING_ERROR
+#define SL_OSI_RET_OK_HANDLING      SL_HANDLING_ERROR
+#define SL_MALLOC_OK_HANDLING       SL_HANDLING_ERROR
+#define SL_USER_ARGS_HANDLING       SL_HANDLING_ERROR
+#define SL_ERR_IN_PROGRESS_HANDLING SL_HANDLING_ERROR
+#endif
+
+#else
 #define SL_SELF_COND_HANDLING       SL_HANDLING_NONE
 #define SL_PROTOCOL_HANDLING        SL_HANDLING_NONE
 #define SL_DRV_RET_CODE_HANDLING    SL_HANDLING_NONE
@@ -66,7 +89,16 @@ extern "C" {
 #define SL_OSI_RET_OK_HANDLING      SL_HANDLING_NONE
 #define SL_MALLOC_OK_HANDLING       SL_HANDLING_NONE
 #define SL_USER_ARGS_HANDLING       SL_HANDLING_NONE
+#define SL_ERR_IN_PROGRESS_HANDLING SL_HANDLING_NONE
+#endif
 
+
+#if (SL_ERR_IN_PROGRESS_HANDLING == SL_HANDLING_ERROR)
+#define VERIFY_NO_ERROR_HANDLING_IN_PROGRESS() { \
+        if ( g_bDeviceRestartIsRequired == (_u8)TRUE) return SL_API_ABORTED; }
+#else
+#define VERIFY_NO_ERROR_HANDLING_IN_PROGRESS()
+#endif
 #if (SL_DRV_RET_CODE_HANDLING == SL_HANDLING_ASSERT)
 #define VERIFY_RET_OK(Func)                     {_SlReturnVal_t _RetVal = (Func); _SL_ASSERT((_SlReturnVal_t)SL_OS_RET_CODE_OK == _RetVal)}
 #elif (SL_DRV_RET_CODE_HANDLING == SL_HANDLING_ERROR)
@@ -92,8 +124,8 @@ extern "C" {
 #endif
 
 #if (SL_NWP_IF_HANDLING == SL_HANDLING_ASSERT)
-#define NWP_IF_WRITE_CHECK(fd,pBuff,len)       { _i16 RetSize, ExpSize = (len); RetSize = sl_IfWrite((fd),(pBuff),ExpSize); _SL_ASSERT(ExpSize == RetSize)}
-#define NWP_IF_READ_CHECK(fd,pBuff,len)        { _i16 RetSize, ExpSize = (len); RetSize = sl_IfRead((fd),(pBuff),ExpSize);  _SL_ASSERT(ExpSize == RetSize)}
+#define NWP_IF_WRITE_CHECK(fd,pBuff,len)       { _i16 RetSize, ExpSize = (_i16)(len); RetSize = sl_IfWrite((fd),(pBuff),ExpSize); _SL_ASSERT(ExpSize == RetSize)}
+#define NWP_IF_READ_CHECK(fd,pBuff,len)        { _i16 RetSize, ExpSize = (_i16)(len); RetSize = sl_IfRead((fd),(pBuff),ExpSize);  _SL_ASSERT(ExpSize == RetSize)}
 #elif (SL_NWP_IF_HANDLING == SL_HANDLING_ERROR)
 #define NWP_IF_WRITE_CHECK(fd,pBuff,len)       { _SL_ERROR((len == sl_IfWrite((fd),(pBuff),(len))), SL_RET_CODE_NWP_IF_ERROR);}
 #define NWP_IF_READ_CHECK(fd,pBuff,len)        { _SL_ERROR((len == sl_IfRead((fd),(pBuff),(len))),  SL_RET_CODE_NWP_IF_ERROR);}
@@ -132,6 +164,20 @@ extern "C" {
 #define ARG_CHECK_PTR(Ptr)
 #endif
 
+/*#define SL_DBG_TRACE_ENABLE*/
+#ifdef SL_DBG_TRACE_ENABLE
+#define SL_TRACE0(level,msg_id,str)                     printf(str)
+#define SL_TRACE1(level,msg_id,str,p1)                  printf(str,(p1))
+#define SL_TRACE2(level,msg_id,str,p1,p2)               printf(str,(p1),(p2))
+#define SL_TRACE3(level,msg_id,str,p1,p2,p3)            printf(str,(p1),(p2),(p3))
+#define SL_TRACE4(level,msg_id,str,p1,p2,p3,p4)         printf(str,(p1),(p2),(p3),(p4))
+#define SL_ERROR_TRACE(msg_id,str)                      printf(str)
+#define SL_ERROR_TRACE1(msg_id,str,p1)                  printf(str,(p1))
+#define SL_ERROR_TRACE2(msg_id,str,p1,p2)               printf(str,(p1),(p2))
+#define SL_ERROR_TRACE3(msg_id,str,p1,p2,p3)            printf(str,(p1),(p2),(p3))
+#define SL_ERROR_TRACE4(msg_id,str,p1,p2,p3,p4)         printf(str,(p1),(p2),(p3),(p4))
+#define SL_TRACE_FLUSH()
+#else
 #define SL_TRACE0(level,msg_id,str)
 #define SL_TRACE1(level,msg_id,str,p1)
 #define SL_TRACE2(level,msg_id,str,p1,p2)
@@ -143,6 +189,7 @@ extern "C" {
 #define SL_ERROR_TRACE3(msg_id,str,p1,p2,p3)
 #define SL_ERROR_TRACE4(msg_id,str,p1,p2,p3,p4)
 #define SL_TRACE_FLUSH()
+#endif
 
 /* #define SL_DBG_CNT_ENABLE */
 #ifdef SL_DBG_CNT_ENABLE
@@ -159,7 +206,7 @@ extern "C" {
 #define SL_DBG_LEVEL_3                  4
 #define SL_DBG_LEVEL_MASK               (SL_DBG_LEVEL_2|SL_DBG_LEVEL_3)
 
-#define SL_INCLUDE_DBG_FUNC(Name)		((Name ## _DBG_LEVEL) & SL_DBG_LEVEL_MASK)
+#define SL_INCLUDE_DBG_FUNC(Name)       ((Name ## _DBG_LEVEL) & SL_DBG_LEVEL_MASK)
 
 #define _SlDrvPrintStat_DBG_LEVEL       SL_DBG_LEVEL_3
 #define _SlDrvOtherFunc_DBG_LEVEL       SL_DBG_LEVEL_1

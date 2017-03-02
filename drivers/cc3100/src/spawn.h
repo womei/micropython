@@ -1,5 +1,5 @@
 /*
- * flowcont.c - CC31xx/CC32xx Host Driver Implementation
+ * spawn.h - CC31xx/CC32xx Host Driver Implementation
  *
  * Copyright (C) 2015 Texas Instruments Incorporated - http://www.ti.com/ 
  * 
@@ -34,40 +34,30 @@
  *
 */
 
+#ifndef __SPAWN_H__
+#define __SPAWN_H__
 
-
-/*****************************************************************************/
-/* Include files                                                             */
-/*****************************************************************************/
-#include "simplelink.h"
-#include "protocol.h"
-#include "driver.h"
-#include "flowcont.h"
-
-
-/*****************************************************************************/
-/* _SlDrvFlowContInit */
-/*****************************************************************************/
-#if 0
-void _SlDrvFlowContInit(void)
-{
-    g_pCB->FlowContCB.TxPoolCnt = FLOW_CONT_MIN;
-
-    OSI_RET_OK_CHECK(sl_LockObjCreate(&g_pCB->FlowContCB.TxLockObj, "TxLockObj"));
-
-    OSI_RET_OK_CHECK(sl_SyncObjCreate(&g_pCB->FlowContCB.TxSyncObj, "TxSyncObj"));
-}
-
-/*****************************************************************************/
-/* _SlDrvFlowContDeinit */
-/*****************************************************************************/
-void _SlDrvFlowContDeinit(void)
-{
-    g_pCB->FlowContCB.TxPoolCnt = 0;
-
-    OSI_RET_OK_CHECK(sl_LockObjDelete(&g_pCB->FlowContCB.TxLockObj));
-
-    OSI_RET_OK_CHECK(sl_SyncObjDelete(&g_pCB->FlowContCB.TxSyncObj));
-}
+#ifdef  __cplusplus
+extern "C" {
 #endif
 
+
+#if (defined (SL_PLATFORM_MULTI_THREADED)) && (!defined (SL_PLATFORM_EXTERNAL_SPAWN))
+
+extern void _SlInternalSpawnTaskEntry();
+extern _i16 _SlInternalSpawn(_SlSpawnEntryFunc_t pEntry , void* pValue , _u32 flags);
+
+#undef sl_Spawn
+#define sl_Spawn(pEntry,pValue,flags)               _SlInternalSpawn(pEntry,pValue,flags)
+
+#undef _SlTaskEntry
+#define _SlTaskEntry                                _SlInternalSpawnTaskEntry
+
+
+#endif
+
+#ifdef  __cplusplus
+}
+#endif /* __cplusplus */
+
+#endif
