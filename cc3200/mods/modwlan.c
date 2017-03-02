@@ -144,7 +144,7 @@ OsiLockObj_t wlan_LockObj;
  DECLARE PRIVATE FUNCTIONS
  ******************************************************************************/
 STATIC void wlan_clear_data (void);
-STATIC void wlan_reenable (SlWlanMode_t mode);
+STATIC void wlan_reenable (SlWlanMode_e mode);
 STATIC void wlan_servers_start (void);
 STATIC void wlan_servers_stop (void);
 STATIC void wlan_reset (void);
@@ -549,7 +549,7 @@ STATIC void wlan_clear_data (void) {
     //memset(wlan_obj.bssid, 0, sizeof(wlan_obj.bssid));
 }
 
-STATIC void wlan_reenable (SlWlanMode_t mode) {
+STATIC void wlan_reenable (SlWlanMode_e mode) {
     // stop and start again
     #ifdef SL_PLATFORM_MULTI_THREADED
     sl_LockObjLock (&wlan_LockObj, SL_OS_WAIT_FOREVER);

@@ -892,10 +892,7 @@ typedef OsiLockObj_t                            _SlLockObj_t;
     \warning
 */
 
-#define SL_MEMORY_MGMT_DYNAMIC 	        1
-#define SL_MEMORY_MGMT_STATIC           0
-
-#define SL_MEMORY_MGMT                  SL_MEMORY_MGMT_DYNAMIC
+#define SL_MEMORY_MGMT_DYNAMIC
 
 #ifdef SL_MEMORY_MGMT_DYNAMIC
 #ifdef SL_PLATFORM_MULTI_THREADED
@@ -1034,17 +1031,6 @@ typedef OsiLockObj_t                            _SlLockObj_t;
 
 
 
-#define _SL_USER_TYPES
-#define _u8         unsigned char
-#define _i8         signed char
-
-#define _u16        unsigned short
-#define _i16        signed short
-
-#define _u32        unsigned int
-#define _i32        signed int
-#define _volatile   volatile
-#define _const      const
 
 
 

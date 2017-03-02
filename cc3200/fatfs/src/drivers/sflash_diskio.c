@@ -25,7 +25,7 @@ static uint32_t sflash_prblock;
 
 static void print_block_name (_u32 ublock) {
     char _sblock[4];
-    snprintf (_sblock, sizeof(_sblock), "%03u", ublock);
+    snprintf (_sblock, sizeof(_sblock), "%03u", (uint)ublock);
     memcpy (&sflash_block_name[2], _sblock, 3);
 }
 

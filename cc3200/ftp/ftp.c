@@ -726,7 +726,7 @@ static void ftp_process_cmd (void) {
                 ftp_get_param_and_open_child (&bufptr);
                 if (FR_OK == f_stat_helper(ftp_path, &fno)) {
                     // send the size
-                    snprintf((char *)ftp_data.dBuffer, FTP_BUFFER_SIZE, "%u", (_u32)fno.fsize);
+                    snprintf((char *)ftp_data.dBuffer, FTP_BUFFER_SIZE, "%u", (uint)fno.fsize);
                     ftp_send_reply(213, (char *)ftp_data.dBuffer);
                 }
                 else {
@@ -975,12 +975,12 @@ static int ftp_print_eplf_item (char *dest, uint32_t destsize, FILINFO *fno) {
     tseconds = pyb_rtc_get_seconds();
     if (FTP_UNIX_SECONDS_180_DAYS < tseconds - fseconds) {
         return snprintf(dest, destsize, "%srw-rw-r--   1 root  root %9u %s %2u %5u %s\r\n",
-                        type, (_u32)fno->fsize, ftp_month[mindex].month, day,
+                        type, (uint)fno->fsize, ftp_month[mindex].month, day,
                         1980 + ((fno->fdate >> 9) & 0x7f), fno->fname);
     }
     else {
         return snprintf(dest, destsize, "%srw-rw-r--   1 root  root %9u %s %2u %02u:%02u %s\r\n",
-                        type, (_u32)fno->fsize, ftp_month[mindex].month, day,
+                        type, (uint)fno->fsize, ftp_month[mindex].month, day,
                         (fno->ftime >> 11) & 0x1f, (fno->ftime >> 5) & 0x3f, fno->fname);
     }
 }
