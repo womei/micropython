@@ -53,8 +53,6 @@
 
 #define LOG_ERR(str) printf("Error: %s\n",str)
 #define LOG_INFO(str) printf("Info: %s\n",str)
-#define LOG_COND_CONT(condition)       ((void)0)
-#define LOG_COND_RET(condition, rc)    ((void)0)
 
 #define USE_HARD_SPI (1)
 
@@ -424,7 +422,6 @@ STATIC mp_obj_t cc3100_scan(mp_obj_t self_in) {
   uint8_t configVal = 60;
   LOG_INFO("Enable Scan");
   retVal = sl_WlanPolicySet(SL_POLICY_SCAN, configOpt, &configVal, sizeof(configVal));
-  LOG_COND_RET(retVal >= 0, -1);
   mp_hal_delay_ms(1000); // Wait 1 second to ensure scan starts
   
   int runningIdx, numOfEntries, idx;
@@ -830,11 +827,8 @@ STATIC mp_obj_t cc3100_make_new(const mp_obj_type_t *type, mp_uint_t n_args, mp_
 
         // Select station mode, and restart to activate it
         retVal = sl_WlanSetMode(ROLE_STA);
-        LOG_COND_RET(retVal>=0, -1);
         retVal = sl_Stop(100);
-        LOG_COND_RET(retVal>=0, -1);
         mode = sl_Start(0, 0, 0);
-        LOG_COND_RET(mode>=0, -1);
         if(ROLE_STA != mode)
         {
             LOG_ERR("not in station mode");
@@ -845,12 +839,10 @@ STATIC mp_obj_t cc3100_make_new(const mp_obj_type_t *type, mp_uint_t n_args, mp_
     /* Set connection policy to nothing magic  */
     LOG_INFO("Set connection policy");
     retVal = sl_WlanPolicySet(SL_POLICY_CONNECTION, SL_CONNECTION_POLICY(0, 0, 0, 0, 0), NULL, 0);
-    LOG_COND_RET(retVal>=0, -1);
 
     /* Remove all profiles */
     LOG_INFO("Remove all profiles");
     retVal = sl_WlanProfileDel(0xFF);
-    LOG_COND_RET(retVal>=0, -1);
 
     /*
      * Device in station-mode. Disconnect previous connection if any
@@ -870,24 +862,19 @@ STATIC mp_obj_t cc3100_make_new(const mp_obj_type_t *type, mp_uint_t n_args, mp_
     /* Enable DHCP client*/
     LOG_INFO("Enable DHCP");
     retVal = sl_NetCfgSet(SL_IPV4_STA_P2P_CL_DHCP_ENABLE,1,1,(uint8_t *)&val);
-    LOG_COND_RET(retVal>=0, -1);
 
     /* Set Tx power level for station mode
        Number between 0-15, as dB offset from max power - 0 will set maximum power */
     power = 0;
     retVal = sl_WlanSet(SL_WLAN_CFG_GENERAL_PARAM_ID, WLAN_GENERAL_PARAM_OPT_STA_TX_POWER, 1, (unsigned char *)&power);
-    LOG_COND_RET(retVal>=0, -1);
 
     /* Set PM policy to normal */
     retVal = sl_WlanPolicySet(SL_POLICY_PM, SL_NORMAL_POLICY, NULL, 0);
-    LOG_COND_RET(retVal>=0, -1);
 
     /* Unregister mDNS services */
     retVal = sl_NetAppMDNSUnRegisterService(0, 0);
-    LOG_COND_RET(retVal>=0, -1);
 
     retVal = sl_Stop(100);
-    LOG_COND_RET(retVal>=0, -1);
 
     /* Initializing the CC3100 device */
     retVal = sl_Start(0, 0, 0);
