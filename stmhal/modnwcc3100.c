@@ -34,6 +34,7 @@
 #include "py/stream.h"
 #include "py/runtime.h"
 #include "py/mphal.h"
+#include "extmod/machine_spi.h"
 
 #include "netutils.h"
 #include "modnetwork.h"
@@ -55,6 +56,8 @@
 #define LOG_COND_CONT(condition)       ((void)0)
 #define LOG_COND_RET(condition, rc)    ((void)0)
 
+#define USE_HARD_SPI (1)
+
 // *** Begin simplelink interface functions
 STATIC volatile irq_handler_t cc3100_IrqHandler = 0;
 
@@ -63,9 +66,15 @@ STATIC const pin_obj_t *PIN_CS = NULL;
 STATIC const pin_obj_t *PIN_EN = NULL;
 STATIC const pin_obj_t *PIN_IRQ = NULL;
 
+#if !USE_HARD_SPI
+STATIC mp_machine_soft_spi_obj_t soft_spi;
+#endif
+
 // External CC3100
 Fd_t spi_Open(char* pIfName, unsigned long flags)
 {
+    #if USE_HARD_SPI
+
     spi_set_params(SPI_HANDLE, -1, 20000000, 0, 0, 8, SPI_FIRSTBIT_MSB);
     SPI_HANDLE->Init.Mode = SPI_MODE_MASTER;
     SPI_HANDLE->Init.Direction = SPI_DIRECTION_2LINES;
@@ -77,6 +86,21 @@ Fd_t spi_Open(char* pIfName, unsigned long flags)
     // init the SPI bus
     spi_init(SPI_HANDLE, false);
 
+    #else
+
+    soft_spi.delay_half = MICROPY_PY_MACHINE_SPI_MIN_DELAY;
+    soft_spi.polarity = 0;
+    soft_spi.phase = 0;
+    soft_spi.sck = &MICROPY_HW_SPI1_SCK;
+    soft_spi.mosi = &MICROPY_HW_SPI1_MOSI;
+    soft_spi.miso = &MICROPY_HW_SPI1_MISO;
+    mp_hal_pin_write(soft_spi.sck, soft_spi.polarity);
+    mp_hal_pin_output(soft_spi.sck);
+    mp_hal_pin_output(soft_spi.mosi);
+    mp_hal_pin_input(soft_spi.miso);
+
+    #endif
+
     // CS Pin
     mp_hal_pin_output(PIN_CS);
     mp_hal_pin_high(PIN_CS);
@@ -87,13 +111,16 @@ Fd_t spi_Open(char* pIfName, unsigned long flags)
 
 int spi_Close(Fd_t Fd)
 {
+    #if USE_HARD_SPI
     spi_deinit(SPI_HANDLE);
+    #endif
     return 0;
 }
 
 int spi_TransmitReceive(unsigned char* txBuff, unsigned char* rxBuff, int Len)
 {
     mp_hal_pin_low(PIN_CS);
+    #if USE_HARD_SPI
     if (txBuff == NULL) {
         // It seems that "receive only" SPI transfer does not work, at least
         // not on the STM32L475.  So for such a case we do a full tx+rx, with
@@ -102,6 +129,9 @@ int spi_TransmitReceive(unsigned char* txBuff, unsigned char* rxBuff, int Len)
         txBuff = rxBuff;
     }
     spi_transfer(spi_get_obj_from_handle(SPI_HANDLE), Len, txBuff, rxBuff, 0x1000);
+    #else
+    mp_machine_soft_spi_transfer(&soft_spi.base, Len, txBuff, rxBuff);
+    #endif
     mp_hal_pin_high(PIN_CS);
     return HAL_OK;
 }
