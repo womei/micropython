@@ -388,17 +388,15 @@ STATIC mp_obj_t cc3100_ifconfig(mp_obj_t self_in) {
     unsigned char iplen = sizeof(SlNetCfgIpV4Args_t);
     unsigned char dhcpIsOn = 0;
     SlNetCfgIpV4Args_t ipV4 = {0};
-    _i32 retVal = sl_NetCfgGet(SL_IPV4_STA_P2P_CL_GET_INFO,&dhcpIsOn,&iplen,(unsigned char *)&ipV4);
-    if (retVal == 0) {
-        mp_obj_t tuple[4];
-        tuple[0] = netutils_format_ipv4_addr((uint8_t*)&ipV4.ipV4, NETUTILS_LITTLE);
-        tuple[1] = netutils_format_ipv4_addr((uint8_t*)&ipV4.ipV4Mask, NETUTILS_LITTLE);
-        tuple[2] = netutils_format_ipv4_addr((uint8_t*)&ipV4.ipV4Gateway, NETUTILS_LITTLE);
-        tuple[3] = netutils_format_ipv4_addr((uint8_t*)&ipV4.ipV4DnsServer, NETUTILS_LITTLE);
-        return mp_obj_new_tuple(MP_ARRAY_SIZE(tuple), tuple);
-    } else {
-        nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_OSError, "Error %d getting IP address", retVal));
-    }
+    // Ignore the return value of the next call.  It seems that it can return non-zero
+    // values even if it succeeds.  Examples of such values are: 0xff52, 0xff91.
+    sl_NetCfgGet(SL_IPV4_STA_P2P_CL_GET_INFO, &dhcpIsOn, &iplen, (unsigned char *)&ipV4);
+    mp_obj_t tuple[4];
+    tuple[0] = netutils_format_ipv4_addr((uint8_t*)&ipV4.ipV4, NETUTILS_LITTLE);
+    tuple[1] = netutils_format_ipv4_addr((uint8_t*)&ipV4.ipV4Mask, NETUTILS_LITTLE);
+    tuple[2] = netutils_format_ipv4_addr((uint8_t*)&ipV4.ipV4Gateway, NETUTILS_LITTLE);
+    tuple[3] = netutils_format_ipv4_addr((uint8_t*)&ipV4.ipV4DnsServer, NETUTILS_LITTLE);
+    return mp_obj_new_tuple(MP_ARRAY_SIZE(tuple), tuple);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(cc3100_ifconfig_obj, cc3100_ifconfig);
 
