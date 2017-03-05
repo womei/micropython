@@ -1247,10 +1247,9 @@ STATIC int cc3100_socket_ioctl(mod_network_socket_obj_t *socket, mp_uint_t reque
         int fd = socket->u_state;
 
         // init fds
-        SlFdSet_t  rfds, wfds, xfds;
+        SlFdSet_t rfds, wfds;
         SL_FD_ZERO(&rfds);
         SL_FD_ZERO(&wfds);
-        SL_FD_ZERO(&xfds);
 
         // set fds if needed
         if (flags & MP_STREAM_POLL_RD) {
@@ -1265,15 +1264,13 @@ STATIC int cc3100_socket_ioctl(mod_network_socket_obj_t *socket, mp_uint_t reque
         if (flags & MP_STREAM_POLL_WR) {
             SL_FD_SET(fd, &wfds);
         }
-        if (flags & MP_STREAM_POLL_HUP) {
-            SL_FD_SET(fd, &xfds);
-        }
 
         // call cc3100 select with minimum timeout
         SlTimeval_t tv;
         tv.tv_sec = 0;
         tv.tv_usec = 1;
-        int nfds = sl_Select(fd + 1, &rfds, &wfds, &xfds, &tv);
+        // xfds not supported by simplelink
+        int nfds = sl_Select(fd + 1, &rfds, &wfds, NULL, &tv);
 
         // check for error
         if (nfds == -1) {
@@ -1287,9 +1284,6 @@ STATIC int cc3100_socket_ioctl(mod_network_socket_obj_t *socket, mp_uint_t reque
         }
         if (SL_FD_ISSET(fd, &wfds)) {
             ret |= MP_STREAM_POLL_WR;
-        }
-        if (SL_FD_ISSET(fd, &xfds)) {
-            ret |= MP_STREAM_POLL_HUP;
         }
     } else {
         *_errno = MP_EINVAL;
