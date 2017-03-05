@@ -1273,8 +1273,8 @@ STATIC int cc3100_socket_ioctl(mod_network_socket_obj_t *socket, mp_uint_t reque
         int nfds = sl_Select(fd + 1, &rfds, &wfds, NULL, &tv);
 
         // check for error
-        if (nfds == -1) {
-            *_errno = -1;
+        if (nfds < 0) {
+            *_errno = -nfds;
             return -1;
         }
 
