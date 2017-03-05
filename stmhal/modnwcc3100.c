@@ -272,7 +272,117 @@ STATIC int cc3100_gethostbyname(mp_obj_t nic, const char *name, mp_uint_t len, u
     return 0;
 }
 
+STATIC void cc3100_activate(void) {
+    if (cc3100_IrqHandler) {
+        // Here we assume the driver was already started and just reinitialise the
+        // low-level interface.
+        mp_hal_pin_config(PIN_IRQ, MP_HAL_PIN_MODE_INPUT, MP_HAL_PIN_PULL_DOWN, 0);
+        mp_hal_pin_output(PIN_EN);
+        spi_Open(NULL, 0);
+        NwpRegisterInterruptHandler(cc3100_IrqHandler, NULL);
+        return;
+    }
 
+    wlan_connected = false;
+    ip_obtained    = false;
+
+    int32_t ret = -1;
+
+    int32_t mode = sl_Start(NULL,NULL,NULL);
+
+    static const unsigned char defaultcountry[2] = "EU";
+    if (sl_WlanSet(SL_WLAN_CFG_GENERAL_PARAM_ID, WLAN_GENERAL_PARAM_OPT_COUNTRY_CODE, 2, defaultcountry)) {
+        LOG_ERR("failed to set country code!");
+    }
+
+    if (mode != ROLE_STA) {
+        // Configure the device into station mode
+        if (mode == ROLE_AP) {
+            LOG_INFO("mode: ROLE_AP");
+            /* If the device is in AP mode, we need to wait for this event before doing anything */
+            while (ip_obtained == false) {
+                _SlNonOsMainLoopTask();
+            }
+        }
+
+        // Select station mode, and restart to activate it
+        ret = sl_WlanSetMode(ROLE_STA);
+        ret = sl_Stop(100);
+        mode = sl_Start(0, 0, 0);
+        if (mode != ROLE_STA) {
+            nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "failed to init CC3100 in STA mode"));
+        }
+    }
+
+    /* Set connection policy to nothing magic  */
+    LOG_INFO("Set connection policy");
+    ret = sl_WlanPolicySet(SL_POLICY_CONNECTION, SL_CONNECTION_POLICY(0, 0, 0, 0, 0), NULL, 0);
+
+    /* Remove all profiles */
+    LOG_INFO("Remove all profiles");
+    ret = sl_WlanProfileDel(0xFF);
+
+    // Device in station-mode. Disconnect previous connection if any
+    // The function returns 0 if 'Disconnected done', negative number if already disconnected
+    // Wait for 'disconnection' event if 0 is returned, Ignore other return-codes
+    LOG_INFO("Disconnect from AP");
+    ret = sl_WlanDisconnect();
+    if (ret == 0) {
+        // wait for disconnection
+        while (wlan_connected == true) {
+            _SlNonOsMainLoopTask();
+        }
+    }
+
+    // Enable DHCP client
+    LOG_INFO("Enable DHCP");
+    uint8_t val = 1;
+    ret = sl_NetCfgSet(SL_IPV4_STA_P2P_CL_DHCP_ENABLE,1,1,(uint8_t *)&val);
+
+    // Set Tx power level for station mode
+    // Number between 0-15, as dB offset from max power - 0 will set maximum power
+    uint8_t power = 0;
+    ret = sl_WlanSet(SL_WLAN_CFG_GENERAL_PARAM_ID, WLAN_GENERAL_PARAM_OPT_STA_TX_POWER, 1, (unsigned char *)&power);
+
+    // Set PM policy to normal
+    ret = sl_WlanPolicySet(SL_POLICY_PM, SL_NORMAL_POLICY, NULL, 0);
+
+    // Unregister mDNS services
+    ret = sl_NetAppMDNSUnRegisterService(0, 0);
+
+    ret = sl_Stop(100);
+
+    // Initializing the CC3100 device
+    ret = sl_Start(0, 0, 0);
+    if (ret < 0 || ret != ROLE_STA) {
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "failed to init CC3100"));
+    }
+}
+
+STATIC void cc3100_deactivate(void) {
+    // it doesn't seem we can call sl_Stop if the device is already stopped
+    if (cc3100_IrqHandler != NULL) {
+        sl_Stop(100);
+        // the above call should have cleared the IRQ handler, but we do it
+        // anyway because it's used to tell if we are active or not
+        cc3100_IrqHandler = NULL;
+    }
+}
+
+STATIC mp_obj_t cc3100_active(size_t n_args, const mp_obj_t *pos_args) {
+    if (n_args == 1) {
+        return mp_obj_new_bool(cc3100_IrqHandler != NULL);
+    }
+
+    if (mp_obj_is_true(pos_args[1])) {
+        cc3100_activate();
+    } else {
+        cc3100_deactivate();
+    }
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cc3100_active_obj, 1, 2, cc3100_active);
 
 // Additional interface functions
 // method connect(ssid, key=None, *, security=WPA2, bssid=None, timeout=90)
@@ -762,7 +872,6 @@ typedef struct _cc3100_obj_t {
 
 STATIC const cc3100_obj_t cc3100_obj = {{(mp_obj_type_t*)&mod_network_nic_type_cc3100}};
 
-
 STATIC mp_obj_t cc3100_make_new(const mp_obj_type_t *type, mp_uint_t n_args, mp_uint_t n_kw, const mp_obj_t *args) {
 
     // Either defaults, or SPI Obj, IRQ Pin, nHIB Pin
@@ -787,104 +896,7 @@ STATIC mp_obj_t cc3100_make_new(const mp_obj_type_t *type, mp_uint_t n_args, mp_
        PIN_IRQ = pin_find(args[3]);
     }
 
-    if (cc3100_IrqHandler && wlan_connected && ip_obtained) {
-        // Here we assume the driver was already started and just reinitialise the
-        // low-level interface.
-        mp_hal_pin_config(PIN_IRQ, MP_HAL_PIN_MODE_INPUT, MP_HAL_PIN_PULL_DOWN, 0);
-        mp_hal_pin_output(PIN_EN);
-        spi_Open(NULL, 0);
-        NwpRegisterInterruptHandler(cc3100_IrqHandler, NULL);
-        goto quick_start;
-    }
-
-    wlan_connected = false;
-    ip_obtained    = false;
-
-    uint8_t val = 1;
-    uint8_t power = 0;
-    int32_t retVal = -1;
-    int32_t mode = -1;
-    static const unsigned char defaultcountry[2] = "EU";
-
-
-    mode = sl_Start(NULL,NULL,NULL);
-
-    if (sl_WlanSet(SL_WLAN_CFG_GENERAL_PARAM_ID, WLAN_GENERAL_PARAM_OPT_COUNTRY_CODE, 2, defaultcountry)) {
-        LOG_ERR("failed to set country code!");
-    }
-
-    if(ROLE_STA != mode)
-    {   // Configure the device into station mode
-        if(ROLE_AP == mode)
-        {
-            LOG_INFO("mode: ROLE_AP");
-            /* If the device is in AP mode, we need to wait for this event before doing anything */
-            while(ip_obtained == false)
-            {
-                _SlNonOsMainLoopTask();
-            }
-        }
-
-        // Select station mode, and restart to activate it
-        retVal = sl_WlanSetMode(ROLE_STA);
-        retVal = sl_Stop(100);
-        mode = sl_Start(0, 0, 0);
-        if(ROLE_STA != mode)
-        {
-            LOG_ERR("not in station mode");
-            nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "Failed to init cc3100 module"));
-        }
-    }
-
-    /* Set connection policy to nothing magic  */
-    LOG_INFO("Set connection policy");
-    retVal = sl_WlanPolicySet(SL_POLICY_CONNECTION, SL_CONNECTION_POLICY(0, 0, 0, 0, 0), NULL, 0);
-
-    /* Remove all profiles */
-    LOG_INFO("Remove all profiles");
-    retVal = sl_WlanProfileDel(0xFF);
-
-    /*
-     * Device in station-mode. Disconnect previous connection if any
-     * The function returns 0 if 'Disconnected done', negative number if already disconnected
-     * Wait for 'disconnection' event if 0 is returned, Ignore other return-codes
-     */
-    LOG_INFO("Disconnect from AP");
-    retVal = sl_WlanDisconnect();
-    if(0 == retVal)
-    {  // wait for disconnection
-        while(wlan_connected == true)
-        {
-            _SlNonOsMainLoopTask();
-        }
-    }
-
-    /* Enable DHCP client*/
-    LOG_INFO("Enable DHCP");
-    retVal = sl_NetCfgSet(SL_IPV4_STA_P2P_CL_DHCP_ENABLE,1,1,(uint8_t *)&val);
-
-    /* Set Tx power level for station mode
-       Number between 0-15, as dB offset from max power - 0 will set maximum power */
-    power = 0;
-    retVal = sl_WlanSet(SL_WLAN_CFG_GENERAL_PARAM_ID, WLAN_GENERAL_PARAM_OPT_STA_TX_POWER, 1, (unsigned char *)&power);
-
-    /* Set PM policy to normal */
-    retVal = sl_WlanPolicySet(SL_POLICY_PM, SL_NORMAL_POLICY, NULL, 0);
-
-    /* Unregister mDNS services */
-    retVal = sl_NetAppMDNSUnRegisterService(0, 0);
-
-    retVal = sl_Stop(100);
-
-    /* Initializing the CC3100 device */
-    retVal = sl_Start(0, 0, 0);
-    if((retVal < 0) || (ROLE_STA != retVal))
-    {
-        LOG_ERR("");
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "Failed to init cc31k module"));
-    }
-
-quick_start:
+    cc3100_activate();
 
     // register with network module
     mod_network_register_nic((mp_obj_t)&cc3100_obj);
@@ -893,6 +905,7 @@ quick_start:
 }
 
 STATIC const mp_map_elem_t cc3100_locals_dict_table[] = {
+    { MP_OBJ_NEW_QSTR(MP_QSTR_active),          (mp_obj_t)&cc3100_active_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_connect),         (mp_obj_t)&cc3100_connect_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_disconnect),      (mp_obj_t)&cc3100_disconnect_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_isconnected),    (mp_obj_t)&cc3100_isconnected_obj },
