@@ -555,6 +555,10 @@ soft_reset:
     spi_init0();
     pyb_usb_init0();
 
+#if MICROPY_PY_NETWORK
+    mod_network_init();
+#endif
+
     // Initialise the local flash filesystem.
     // Create it if needed, mount in on /flash, and set it as current dir.
     bool mounted_flash = init_flash_fs(reset_mode);
@@ -634,10 +638,6 @@ soft_reset:
 #if MICROPY_HW_ENABLE_DAC
     // DAC
     dac_init();
-#endif
-
-#if MICROPY_PY_NETWORK
-    mod_network_init();
 #endif
 
     // At this point everything is fully configured and initialised.
