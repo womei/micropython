@@ -998,7 +998,7 @@ STATIC MP_DEFINE_CONST_DICT(cc3100_locals_dict, cc3100_locals_dict_table);
 
 STATIC int cc3100_socket_socket(mod_network_socket_obj_t *socket, int *_errno) {
     if (socket->u_param.domain != MOD_NETWORK_AF_INET) {
-        *_errno = EAFNOSUPPORT;
+        *_errno = MP_EAFNOSUPPORT;
         return -1;
     }
 
@@ -1008,7 +1008,7 @@ STATIC int cc3100_socket_socket(mod_network_socket_obj_t *socket, int *_errno) {
         case MOD_NETWORK_SOCK_STREAM: type = SL_SOCK_STREAM; break;
         case MOD_NETWORK_SOCK_DGRAM: type = SL_SOCK_DGRAM; break;
         case MOD_NETWORK_SOCK_RAW: type = SL_SOCK_RAW; break;
-        default: *_errno = EINVAL; return -1;
+        default: *_errno = MP_EINVAL; return -1;
     }
 
     /* TODO use ussl module
@@ -1016,7 +1016,7 @@ STATIC int cc3100_socket_socket(mod_network_socket_obj_t *socket, int *_errno) {
     {
         // SSL Socket
         if (socket->u_param.type != MOD_NETWORK_SOCK_STREAM ){
-          *_errno = EINVAL; return -1; // Only support TCP SSL
+          *_errno = MP_EINVAL; return -1; // Only support TCP SSL
         }
         // To start we will setup ssl sockets ignoring certificates
         proto = SL_SEC_SOCKET;
@@ -1026,7 +1026,7 @@ STATIC int cc3100_socket_socket(mod_network_socket_obj_t *socket, int *_errno) {
     // open socket
     int fd = sl_Socket(SL_AF_INET, type, proto);
     if (fd < 0) {
-        *_errno = fd;
+        *_errno = -fd;
         return -1;
     }
 
@@ -1050,7 +1050,7 @@ STATIC int cc3100_socket_bind(mod_network_socket_obj_t *socket, byte *ip, mp_uin
     MAKE_SOCKADDR(addr, ip, port)
     int ret = sl_Bind(socket->u_state, &addr, sizeof(addr));
     if (ret != 0) {
-        *_errno = ret;
+        *_errno = -ret;
         return -1;
     }
     return 0;
@@ -1059,7 +1059,7 @@ STATIC int cc3100_socket_bind(mod_network_socket_obj_t *socket, byte *ip, mp_uin
 STATIC int cc3100_socket_listen(mod_network_socket_obj_t *socket, mp_int_t backlog, int *_errno) {
     int ret = sl_Listen(socket->u_state, backlog);
     if (ret != 0) {
-        *_errno = ret;
+        *_errno = -ret;
         return -1;
     }
     return 0;
@@ -1072,7 +1072,7 @@ STATIC int cc3100_socket_accept(mod_network_socket_obj_t *socket, mod_network_so
     SlSocklen_t addr_len = sizeof(addr);
     if ((fd = sl_Accept(socket->u_state, &addr, &addr_len)) < 0) {
         if (fd == SL_EAGAIN) {
-            *_errno = EAGAIN;
+            *_errno = MP_EAGAIN;
         } else {
             *_errno = -fd;
         }
@@ -1107,7 +1107,7 @@ STATIC int cc3100_socket_connect(mod_network_socket_obj_t *socket, byte *ip, mp_
     MAKE_SOCKADDR(addr, ip, port)
     int ret = sl_Connect(socket->u_state, &addr, sizeof(addr));
     if (ret != 0 && ret != SL_ESECSNOVERIFY) {
-        *_errno = ret;
+        *_errno = -ret;
         return -1;
     }
     return 0;
@@ -1171,7 +1171,7 @@ STATIC mp_uint_t cc3100_socket_sendto(mod_network_socket_obj_t *socket, const by
     MAKE_SOCKADDR(addr, ip, port)
     int ret = sl_SendTo(socket->u_state, (byte*)buf, len, 0, (SlSockAddr_t*)&addr, sizeof(addr));
     if (ret < 0) {
-        *_errno = -1; //TODO find correct error
+        *_errno = -ret;
         return -1;
     }
     return ret;
@@ -1182,7 +1182,7 @@ STATIC mp_uint_t cc3100_socket_recvfrom(mod_network_socket_obj_t *socket, byte *
     SlSocklen_t addr_len = sizeof(addr);
     mp_int_t ret = sl_RecvFrom(socket->u_state, buf, len, 0, &addr, &addr_len);
     if (ret < 0) {
-        *_errno = -1; //TODO find correct error
+        *_errno = -ret;
         return -1;
     }
     UNPACK_SOCKADDR(addr, ip, *port);
@@ -1202,7 +1202,7 @@ STATIC int cc3100_socket_setsockopt(mod_network_socket_obj_t *socket, mp_uint_t 
   }
 
   if (ret < 0) {
-    *_errno = ret;
+    *_errno = -ret;
       return -1;
   }
   return 0;
@@ -1232,7 +1232,7 @@ STATIC int cc3100_socket_settimeout(mod_network_socket_obj_t *socket, mp_uint_t 
     }
 
     if (ret != 0) {
-        *_errno = -1; //TODO find correct error
+        *_errno = -ret;
         return -1;
     }
 
