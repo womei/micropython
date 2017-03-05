@@ -1116,7 +1116,7 @@ STATIC int cc3100_socket_connect(mod_network_socket_obj_t *socket, byte *ip, mp_
 STATIC mp_uint_t cc3100_socket_send(mod_network_socket_obj_t *socket, const byte *buf, mp_uint_t len, int *_errno) {
     if (cc3100_get_fd_closed_state(socket->u_state)) {
         sl_Close(socket->u_state);
-        *_errno = EPIPE;
+        *_errno = MP_EPIPE;
         return -1;
     }
 
@@ -1127,7 +1127,7 @@ STATIC mp_uint_t cc3100_socket_send(mod_network_socket_obj_t *socket, const byte
         int n = MIN((len - bytes), MAX_TX_PACKET);
         n = sl_Send(socket->u_state, (uint8_t*)buf + bytes, n, 0);
         if (n <= 0) {
-            *_errno = -1; //TODO find correct error
+            *_errno = -n;
             return -1;
         }
         bytes += n;
@@ -1160,7 +1160,7 @@ STATIC mp_uint_t cc3100_socket_recv(mod_network_socket_obj_t *socket, byte *buf,
     // do the recv
     int ret = sl_Recv(socket->u_state, buf, len, 0);
     if (ret < 0) {
-        *_errno = -1; //TODO find correct error
+        *_errno = -ret;
         return -1;
     }
 
@@ -1292,7 +1292,7 @@ STATIC int cc3100_socket_ioctl(mod_network_socket_obj_t *socket, mp_uint_t reque
             ret |= MP_STREAM_POLL_HUP;
         }
     } else {
-        *_errno = EINVAL;
+        *_errno = MP_EINVAL;
         ret = -1;
     }
     return ret;
