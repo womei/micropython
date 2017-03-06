@@ -235,6 +235,7 @@ void NwpUnMaskInterrupt(){
 #define MAX_RX_PACKET       16000
 #define MAX_TX_PACKET       1460
 
+STATIC int cc3100_socket_settimeout(mod_network_socket_obj_t *socket, mp_uint_t timeout_ms, int *_errno);
 
 STATIC volatile uint32_t fd_closed_state = 0;
 STATIC volatile bool wlan_connected = false;
@@ -1033,8 +1034,16 @@ STATIC int cc3100_socket_socket(mod_network_socket_obj_t *socket, int *_errno) {
     // clear socket state
     cc3100_reset_fd_closed_state(fd);
 
+    // get the timeout that we need to configure the socket to
+    uint32_t timeout = socket->u_param.timeout;
+
     // store state of this socket
     socket->u_state = fd;
+
+    // configure the timeout
+    if (cc3100_socket_settimeout(socket, timeout, _errno) != 0) {
+        return -1;
+    }
 
     return 0;
 }
