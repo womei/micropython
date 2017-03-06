@@ -241,6 +241,7 @@ typedef struct _cc3100_socket_obj_t {
     mp_obj_t nic;
     mod_network_nic_type_t *nic_type;
     int16_t s_fd;
+    bool s_nonblocking_connect;
     uint32_t s_timeout;
 } cc3100_socket_obj_t;
 
@@ -1052,6 +1053,7 @@ STATIC int cc3100_socket_socket(mod_network_socket_obj_t *socket_in, int *_errno
     // store state of this socket
     socket->s_fd = fd;
     socket->s_timeout = timeout;
+    socket->s_nonblocking_connect = false;
 
     // configure the timeout
     if (cc3100_socket_settimeout(socket_in, timeout, _errno) != 0) {
@@ -1113,6 +1115,7 @@ STATIC int cc3100_socket_accept(mod_network_socket_obj_t *socket_in, mod_network
     // store state in new socket object
     socket2->s_fd = fd;
     socket2->s_timeout = -1; // TODO inherit timeout value?
+    socket2->s_nonblocking_connect = false;
 
     // TODO need to check this on cc3100
     // return ip and port
@@ -1137,7 +1140,18 @@ STATIC int cc3100_socket_connect(mod_network_socket_obj_t *socket_in, byte *ip, 
     MAKE_SOCKADDR(addr, ip, port)
     int ret = sl_Connect(socket->s_fd, &addr, sizeof(addr));
     if (ret != 0 && ret != SL_ESECSNOVERIFY) {
-        *_errno = -ret;
+        if (ret == SL_EALREADY && socket->s_timeout == 0) {
+            // For a non-blocking connect the CC3100 will return EALREADY the
+            // first time.  Subsequent calls to sl_Connect can be used to poll
+            // whether the connection is completed: EALREADY will keep being
+            // returned until the connection is made.  To match BSD we return
+            // EINPROGRESS here and set a flag to indicate the connection is in
+            // progress.
+            socket->s_nonblocking_connect = true;
+            *_errno = MP_EINPROGRESS;
+        } else {
+            *_errno = -ret;
+        }
         return -1;
     }
     return 0;
@@ -1281,6 +1295,26 @@ STATIC int cc3100_socket_ioctl(mod_network_socket_obj_t *socket_in, mp_uint_t re
     cc3100_socket_obj_t *socket = (cc3100_socket_obj_t*)socket_in;
     mp_uint_t ret;
     if (request == MP_STREAM_POLL) {
+        if (socket->s_nonblocking_connect) {
+            // CC3100 is in progress of a non-blocking connect.  We poll the
+            // device using sl_Connect with a dummy address and check if the
+            // connection is still in progress, or if it's completed.
+            SlSockAddr_t addr;
+            addr.sa_family = SL_AF_INET;
+            addr.sa_data[0] = 0;
+            addr.sa_data[1] = 0;
+            addr.sa_data[2] = 0;
+            addr.sa_data[3] = 0;
+            addr.sa_data[4] = 0;
+            addr.sa_data[5] = 0;
+            int ret = sl_Connect(socket->s_fd, &addr, sizeof(addr));
+            if (ret == SL_EALREADY) {
+                // connection still in progress
+                return 0;
+            }
+            socket->s_nonblocking_connect = false; // now connected
+        }
+
         mp_uint_t flags = arg;
         ret = 0;
         int fd = socket->s_fd;
