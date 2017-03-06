@@ -1235,6 +1235,11 @@ STATIC mp_uint_t cc3100_socket_recvfrom(mod_network_socket_obj_t *socket_in, byt
 STATIC int cc3100_socket_setsockopt(mod_network_socket_obj_t *socket_in, mp_uint_t level, mp_uint_t opt, const void *optval, mp_uint_t optlen, int *_errno) {
     cc3100_socket_obj_t *socket = (cc3100_socket_obj_t*)socket_in;
 
+    if (level == MOD_NETWORK_SOL_SOCKET && opt == MOD_NETWORK_SO_REUSEADDR) {
+        // It seems that CC3100 always has the behaviour of SO_REUSEADDR
+        return 0;
+    }
+
   int ret;
   // Todo : Review and Clean this up
   if (opt == SL_SO_SECMETHOD) {
