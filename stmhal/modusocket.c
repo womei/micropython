@@ -443,8 +443,8 @@ STATIC mp_obj_t mod_usocket_getaddrinfo(mp_obj_t host_in, mp_obj_t port_in) {
             uint8_t out_ip[MOD_NETWORK_IPADDR_BUF_SIZE];
             int ret = nic_type->gethostbyname(nic, host, hlen, out_ip);
             if (ret != 0) {
-                // TODO CPython raises: socket.gaierror: [Errno -2] Name or service not known
-                mp_raise_OSError(ret);
+                // CPython raises: socket.gaierror: [Errno -2] Name or service not known
+                mp_raise_OSError(-2);
             }
             mp_obj_tuple_t *tuple = mp_obj_new_tuple(5, NULL);
             tuple->items[0] = MP_OBJ_NEW_SMALL_INT(MOD_NETWORK_AF_INET);
