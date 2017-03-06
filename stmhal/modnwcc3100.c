@@ -79,6 +79,7 @@ Fd_t spi_Open(char* pIfName, unsigned long flags)
     SPI_HANDLE->Init.TIMode = SPI_TIMODE_DISABLED;
     SPI_HANDLE->Init.CRCCalculation = SPI_CRCCALCULATION_DISABLED;
     SPI_HANDLE->Init.CRCPolynomial = 0;
+    SPI_HANDLE->Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
 
     // init the SPI bus
     spi_init(SPI_HANDLE, false);
