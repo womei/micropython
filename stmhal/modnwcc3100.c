@@ -234,6 +234,15 @@ void NwpUnMaskInterrupt(){
 #define MAX_RX_PACKET       16000
 #define MAX_TX_PACKET       1460
 
+// This structure has the same first 3 entries as a mod_network_socket_obj_t.
+// The latter entries are different so we can reuse that memory for our own purposes.
+typedef struct _cc3100_socket_obj_t {
+    mp_obj_base_t base;
+    mp_obj_t nic;
+    mod_network_nic_type_t *nic_type;
+    int16_t s_fd;
+} cc3100_socket_obj_t;
+
 STATIC int cc3100_socket_settimeout(mod_network_socket_obj_t *socket, mp_uint_t timeout_ms, int *_errno);
 
 STATIC volatile uint32_t fd_closed_state = 0;
@@ -996,15 +1005,15 @@ STATIC const mp_map_elem_t cc3100_locals_dict_table[] = {
 
 STATIC MP_DEFINE_CONST_DICT(cc3100_locals_dict, cc3100_locals_dict_table);
 
-STATIC int cc3100_socket_socket(mod_network_socket_obj_t *socket, int *_errno) {
-    if (socket->u_param.domain != MOD_NETWORK_AF_INET) {
+STATIC int cc3100_socket_socket(mod_network_socket_obj_t *socket_in, int *_errno) {
+    if (socket_in->u_param.domain != MOD_NETWORK_AF_INET) {
         *_errno = MP_EAFNOSUPPORT;
         return -1;
     }
 
     mp_uint_t type;
     mp_uint_t proto = 0;
-    switch (socket->u_param.type) {
+    switch (socket_in->u_param.type) {
         case MOD_NETWORK_SOCK_STREAM: type = SL_SOCK_STREAM; break;
         case MOD_NETWORK_SOCK_DGRAM: type = SL_SOCK_DGRAM; break;
         case MOD_NETWORK_SOCK_RAW: type = SL_SOCK_RAW; break;
@@ -1012,10 +1021,10 @@ STATIC int cc3100_socket_socket(mod_network_socket_obj_t *socket, int *_errno) {
     }
 
     /* TODO use ussl module
-    if (socket->u_param.proto == MOD_NETWORK_SEC_SOCKET)
+    if (socket_in->u_param.proto == MOD_NETWORK_SEC_SOCKET)
     {
         // SSL Socket
-        if (socket->u_param.type != MOD_NETWORK_SOCK_STREAM ){
+        if (socket_in->u_param.type != MOD_NETWORK_SOCK_STREAM ){
           *_errno = MP_EINVAL; return -1; // Only support TCP SSL
         }
         // To start we will setup ssl sockets ignoring certificates
@@ -1034,29 +1043,34 @@ STATIC int cc3100_socket_socket(mod_network_socket_obj_t *socket, int *_errno) {
     cc3100_reset_fd_closed_state(fd);
 
     // get the timeout that we need to configure the socket to
-    uint32_t timeout = socket->u_param.timeout;
+    uint32_t timeout = socket_in->u_param.timeout;
+
+    // re-cast the socket object to use our custom fields
+    cc3100_socket_obj_t *socket = (cc3100_socket_obj_t*)socket_in;
 
     // store state of this socket
-    socket->u_state = fd;
+    socket->s_fd = fd;
 
     // configure the timeout
-    if (cc3100_socket_settimeout(socket, timeout, _errno) != 0) {
+    if (cc3100_socket_settimeout(socket_in, timeout, _errno) != 0) {
         return -1;
     }
 
     return 0;
 }
 
-STATIC void cc3100_socket_close(mod_network_socket_obj_t *socket) {
-    if (!cc3100_get_fd_closed_state(socket->u_state)) {
-      sl_Close(socket->u_state);
-      cc3100_set_fd_closed_state(socket->u_state);
+STATIC void cc3100_socket_close(mod_network_socket_obj_t *socket_in) {
+    cc3100_socket_obj_t *socket = (cc3100_socket_obj_t*)socket_in;
+    if (!cc3100_get_fd_closed_state(socket->s_fd)) {
+        sl_Close(socket->s_fd);
+        cc3100_set_fd_closed_state(socket->s_fd);
     }
 }
 
-STATIC int cc3100_socket_bind(mod_network_socket_obj_t *socket, byte *ip, mp_uint_t port, int *_errno) {
+STATIC int cc3100_socket_bind(mod_network_socket_obj_t *socket_in, byte *ip, mp_uint_t port, int *_errno) {
+    cc3100_socket_obj_t *socket = (cc3100_socket_obj_t*)socket_in;
     MAKE_SOCKADDR(addr, ip, port)
-    int ret = sl_Bind(socket->u_state, &addr, sizeof(addr));
+    int ret = sl_Bind(socket->s_fd, &addr, sizeof(addr));
     if (ret != 0) {
         *_errno = -ret;
         return -1;
@@ -1064,8 +1078,9 @@ STATIC int cc3100_socket_bind(mod_network_socket_obj_t *socket, byte *ip, mp_uin
     return 0;
 }
 
-STATIC int cc3100_socket_listen(mod_network_socket_obj_t *socket, mp_int_t backlog, int *_errno) {
-    int ret = sl_Listen(socket->u_state, backlog);
+STATIC int cc3100_socket_listen(mod_network_socket_obj_t *socket_in, mp_int_t backlog, int *_errno) {
+    cc3100_socket_obj_t *socket = (cc3100_socket_obj_t*)socket_in;
+    int ret = sl_Listen(socket->s_fd, backlog);
     if (ret != 0) {
         *_errno = -ret;
         return -1;
@@ -1073,12 +1088,15 @@ STATIC int cc3100_socket_listen(mod_network_socket_obj_t *socket, mp_int_t backl
     return 0;
 }
 
-STATIC int cc3100_socket_accept(mod_network_socket_obj_t *socket, mod_network_socket_obj_t *socket2, byte *ip, mp_uint_t *port, int *_errno) {
+STATIC int cc3100_socket_accept(mod_network_socket_obj_t *socket_in, mod_network_socket_obj_t *socket2_in, byte *ip, mp_uint_t *port, int *_errno) {
+    cc3100_socket_obj_t *socket = (cc3100_socket_obj_t*)socket_in;
+    cc3100_socket_obj_t *socket2 = (cc3100_socket_obj_t*)socket2_in;
+
     // accept incoming connection
     int fd;
     SlSockAddr_t addr;
     SlSocklen_t addr_len = sizeof(addr);
-    if ((fd = sl_Accept(socket->u_state, &addr, &addr_len)) < 0) {
+    if ((fd = sl_Accept(socket->s_fd, &addr, &addr_len)) < 0) {
         if (fd == SL_EAGAIN) {
             *_errno = MP_EAGAIN;
         } else {
@@ -1091,7 +1109,7 @@ STATIC int cc3100_socket_accept(mod_network_socket_obj_t *socket, mod_network_so
     cc3100_reset_fd_closed_state(fd);
 
     // store state in new socket object
-    socket2->u_state = fd;
+    socket2->s_fd = fd;
 
     // TODO need to check this on cc3100
     // return ip and port
@@ -1106,14 +1124,15 @@ STATIC int cc3100_socket_accept(mod_network_socket_obj_t *socket, mod_network_so
     return 0;
 }
 
-STATIC int cc3100_socket_connect(mod_network_socket_obj_t *socket, byte *ip, mp_uint_t port, int *_errno) {
-    if (cc3100_get_fd_closed_state(socket->u_state))
-    {
-      cc3100_socket_socket(socket,_errno);// Socket has been closed, we need to recreate it
+STATIC int cc3100_socket_connect(mod_network_socket_obj_t *socket_in, byte *ip, mp_uint_t port, int *_errno) {
+    cc3100_socket_obj_t *socket = (cc3100_socket_obj_t*)socket_in;
+
+    if (cc3100_get_fd_closed_state(socket->s_fd)) {
+        cc3100_socket_socket(socket_in, _errno); // Socket has been closed, we need to recreate it
     }
 
     MAKE_SOCKADDR(addr, ip, port)
-    int ret = sl_Connect(socket->u_state, &addr, sizeof(addr));
+    int ret = sl_Connect(socket->s_fd, &addr, sizeof(addr));
     if (ret != 0 && ret != SL_ESECSNOVERIFY) {
         *_errno = -ret;
         return -1;
@@ -1121,9 +1140,11 @@ STATIC int cc3100_socket_connect(mod_network_socket_obj_t *socket, byte *ip, mp_
     return 0;
 }
 
-STATIC mp_uint_t cc3100_socket_send(mod_network_socket_obj_t *socket, const byte *buf, mp_uint_t len, int *_errno) {
-    if (cc3100_get_fd_closed_state(socket->u_state)) {
-        sl_Close(socket->u_state);
+STATIC mp_uint_t cc3100_socket_send(mod_network_socket_obj_t *socket_in, const byte *buf, mp_uint_t len, int *_errno) {
+    cc3100_socket_obj_t *socket = (cc3100_socket_obj_t*)socket_in;
+
+    if (cc3100_get_fd_closed_state(socket->s_fd)) {
+        sl_Close(socket->s_fd);
         *_errno = MP_EPIPE;
         return -1;
     }
@@ -1133,7 +1154,7 @@ STATIC mp_uint_t cc3100_socket_send(mod_network_socket_obj_t *socket, const byte
     mp_int_t bytes = 0;
     while (bytes < len) {
         int n = MIN((len - bytes), MAX_TX_PACKET);
-        n = sl_Send(socket->u_state, (uint8_t*)buf + bytes, n, 0);
+        n = sl_Send(socket->s_fd, (uint8_t*)buf + bytes, n, 0);
         if (n <= 0) {
             *_errno = -n;
             return -1;
@@ -1144,20 +1165,22 @@ STATIC mp_uint_t cc3100_socket_send(mod_network_socket_obj_t *socket, const byte
     return bytes;
 }
 
-STATIC mp_uint_t cc3100_socket_recv(mod_network_socket_obj_t *socket, byte *buf, mp_uint_t len, int *_errno) {
+STATIC mp_uint_t cc3100_socket_recv(mod_network_socket_obj_t *socket_in, byte *buf, mp_uint_t len, int *_errno) {
+    cc3100_socket_obj_t *socket = (cc3100_socket_obj_t*)socket_in;
+
     // check the socket is open
-    if (cc3100_get_fd_closed_state(socket->u_state)) {
+    if (cc3100_get_fd_closed_state(socket->s_fd)) {
         // socket is closed, but CC3100 may have some data remaining in buffer, so check
         SlFdSet_t rfds;
         SL_FD_ZERO(&rfds);
-        SL_FD_SET(socket->u_state, &rfds);
+        SL_FD_SET(socket->s_fd, &rfds);
         SlTimeval_t tv;
         tv.tv_sec = 0;
         tv.tv_usec = 1;
-        int nfds = sl_Select(socket->u_state + 1, &rfds, NULL, NULL, &tv);
-        if (nfds == -1 || !SL_FD_ISSET(socket->u_state, &rfds)) {
+        int nfds = sl_Select(socket->s_fd + 1, &rfds, NULL, NULL, &tv);
+        if (nfds == -1 || !SL_FD_ISSET(socket->s_fd, &rfds)) {
             // no data waiting, so close socket and return 0 data
-            sl_Close(socket->u_state);
+            sl_Close(socket->s_fd);
             return 0;
         }
     }
@@ -1166,7 +1189,7 @@ STATIC mp_uint_t cc3100_socket_recv(mod_network_socket_obj_t *socket, byte *buf,
     len = MIN(len, MAX_RX_PACKET);
 
     // do the recv
-    int ret = sl_Recv(socket->u_state, buf, len, 0);
+    int ret = sl_Recv(socket->s_fd, buf, len, 0);
     if (ret < 0) {
         *_errno = -ret;
         return -1;
@@ -1175,9 +1198,10 @@ STATIC mp_uint_t cc3100_socket_recv(mod_network_socket_obj_t *socket, byte *buf,
     return ret;
 }
 
-STATIC mp_uint_t cc3100_socket_sendto(mod_network_socket_obj_t *socket, const byte *buf, mp_uint_t len, byte *ip, mp_uint_t port, int *_errno) {
+STATIC mp_uint_t cc3100_socket_sendto(mod_network_socket_obj_t *socket_in, const byte *buf, mp_uint_t len, byte *ip, mp_uint_t port, int *_errno) {
+    cc3100_socket_obj_t *socket = (cc3100_socket_obj_t*)socket_in;
     MAKE_SOCKADDR(addr, ip, port)
-    int ret = sl_SendTo(socket->u_state, (byte*)buf, len, 0, (SlSockAddr_t*)&addr, sizeof(addr));
+    int ret = sl_SendTo(socket->s_fd, (byte*)buf, len, 0, (SlSockAddr_t*)&addr, sizeof(addr));
     if (ret < 0) {
         *_errno = -ret;
         return -1;
@@ -1185,10 +1209,11 @@ STATIC mp_uint_t cc3100_socket_sendto(mod_network_socket_obj_t *socket, const by
     return ret;
 }
 
-STATIC mp_uint_t cc3100_socket_recvfrom(mod_network_socket_obj_t *socket, byte *buf, mp_uint_t len, byte *ip, mp_uint_t *port, int *_errno) {
+STATIC mp_uint_t cc3100_socket_recvfrom(mod_network_socket_obj_t *socket_in, byte *buf, mp_uint_t len, byte *ip, mp_uint_t *port, int *_errno) {
+    cc3100_socket_obj_t *socket = (cc3100_socket_obj_t*)socket_in;
     SlSockAddr_t addr;
     SlSocklen_t addr_len = sizeof(addr);
-    mp_int_t ret = sl_RecvFrom(socket->u_state, buf, len, 0, &addr, &addr_len);
+    mp_int_t ret = sl_RecvFrom(socket->s_fd, buf, len, 0, &addr, &addr_len);
     if (ret < 0) {
         *_errno = -ret;
         return -1;
@@ -1197,16 +1222,17 @@ STATIC mp_uint_t cc3100_socket_recvfrom(mod_network_socket_obj_t *socket, byte *
     return ret;
 }
 
-STATIC int cc3100_socket_setsockopt(mod_network_socket_obj_t *socket, mp_uint_t level, mp_uint_t opt, const void *optval, mp_uint_t optlen, int *_errno) {
+STATIC int cc3100_socket_setsockopt(mod_network_socket_obj_t *socket_in, mp_uint_t level, mp_uint_t opt, const void *optval, mp_uint_t optlen, int *_errno) {
+    cc3100_socket_obj_t *socket = (cc3100_socket_obj_t*)socket_in;
 
   int ret;
   // Todo : Review and Clean this up
   if (opt == SL_SO_SECMETHOD) {
     SlSockSecureMethod method;
     method.secureMethod = (unsigned int) *(unsigned int *)optval;
-    ret = sl_SetSockOpt(socket->u_state, level, opt, (_u8 *) &method, sizeof(method));
+    ret = sl_SetSockOpt(socket->s_fd, level, opt, (_u8 *) &method, sizeof(method));
   } else {
-    ret = sl_SetSockOpt(socket->u_state, level, opt, optval, optlen);
+    ret = sl_SetSockOpt(socket->s_fd, level, opt, optval, optlen);
   }
 
   if (ret < 0) {
@@ -1216,7 +1242,8 @@ STATIC int cc3100_socket_setsockopt(mod_network_socket_obj_t *socket, mp_uint_t 
   return 0;
 }
 
-STATIC int cc3100_socket_settimeout(mod_network_socket_obj_t *socket, mp_uint_t timeout_ms, int *_errno) {
+STATIC int cc3100_socket_settimeout(mod_network_socket_obj_t *socket_in, mp_uint_t timeout_ms, int *_errno) {
+    cc3100_socket_obj_t *socket = (cc3100_socket_obj_t*)socket_in;
     int ret;
     if (timeout_ms == 0 || timeout_ms == -1) {
         SlSockNonblocking_t optval;
@@ -1228,7 +1255,7 @@ STATIC int cc3100_socket_settimeout(mod_network_socket_obj_t *socket, mp_uint_t 
             // set blocking mode
             optval.NonblockingEnabled = 0;
         }
-        ret = sl_SetSockOpt(socket->u_state, SL_SOL_SOCKET, SL_SO_NONBLOCKING , &optval, optlen);
+        ret = sl_SetSockOpt(socket->s_fd, SL_SOL_SOCKET, SL_SO_NONBLOCKING , &optval, optlen);
 
     } else {
         // set timeout
@@ -1236,7 +1263,7 @@ STATIC int cc3100_socket_settimeout(mod_network_socket_obj_t *socket, mp_uint_t 
         timeout.tv_sec = timeout_ms / 1000;
         timeout.tv_usec = timeout_ms % 1000;
         SlSocklen_t optlen = sizeof(timeout);
-        ret = sl_SetSockOpt(socket->u_state, SL_SOL_SOCKET, SL_SO_RCVTIMEO , &timeout, optlen);
+        ret = sl_SetSockOpt(socket->s_fd, SL_SOL_SOCKET, SL_SO_RCVTIMEO , &timeout, optlen);
     }
 
     if (ret != 0) {
@@ -1247,12 +1274,13 @@ STATIC int cc3100_socket_settimeout(mod_network_socket_obj_t *socket, mp_uint_t 
     return 0;
 }
 
-STATIC int cc3100_socket_ioctl(mod_network_socket_obj_t *socket, mp_uint_t request, mp_uint_t arg, int *_errno) {
+STATIC int cc3100_socket_ioctl(mod_network_socket_obj_t *socket_in, mp_uint_t request, mp_uint_t arg, int *_errno) {
+    cc3100_socket_obj_t *socket = (cc3100_socket_obj_t*)socket_in;
     mp_uint_t ret;
     if (request == MP_STREAM_POLL) {
         mp_uint_t flags = arg;
         ret = 0;
-        int fd = socket->u_state;
+        int fd = socket->s_fd;
 
         // init fds
         SlFdSet_t rfds, wfds;
