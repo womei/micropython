@@ -1544,6 +1544,9 @@ void SimpleLinkGeneralEventHandler(SlDeviceEvent_t *pDevEvent)
         case SL_DEVICE_FATAL_ERROR_EVENT:
             LOG_INFO("[GENERAL EVENT] Fatal error: reset device");
             break;
+        case SL_DEVICE_DRIVER_TIMEOUT_ASYNC_EVENT:
+            printf("[GENERAL EVENT] timeout async event info=%d\n", (int)pDevEvent->EventData.deviceDriverReport.info);
+            break;
         default:
             LOG_INFO("[GENERAL EVENT]");
             printf("%d\n", (int)pDevEvent->Event);
