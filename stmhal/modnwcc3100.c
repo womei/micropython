@@ -1135,9 +1135,9 @@ STATIC int cc3100_socket_connect(mod_network_socket_obj_t *socket_in, byte *ip, 
     if (ret != 0 && ret != SL_ESECSNOVERIFY) {
         if (ret == SL_EALREADY && socket->s_timeout == 0) {
             // For a non-blocking connect the CC3100 will return EALREADY the
-            // first time.  Subsequent calls to sl_Connect can be used to poll
-            // whether the connection is completed: EALREADY will keep being
-            // returned until the connection is made.  To match BSD we return
+            // first time.  Calls to sl_Select for writing can be used to poll
+            // whether the connection is completed and then sl_Connect should be
+            // called once more to finish the connection.  To match BSD we return
             // EINPROGRESS here and set a flag to indicate the connection is in
             // progress.
             socket->s_nonblocking_connect = true;
@@ -1293,26 +1293,6 @@ STATIC int cc3100_socket_ioctl(mod_network_socket_obj_t *socket_in, mp_uint_t re
     cc3100_socket_obj_t *socket = (cc3100_socket_obj_t*)socket_in;
     mp_uint_t ret;
     if (request == MP_STREAM_POLL) {
-        if (socket->s_nonblocking_connect) {
-            // CC3100 is in progress of a non-blocking connect.  We poll the
-            // device using sl_Connect with a dummy address and check if the
-            // connection is still in progress, or if it's completed.
-            SlSockAddr_t addr;
-            addr.sa_family = SL_AF_INET;
-            addr.sa_data[0] = 0;
-            addr.sa_data[1] = 0;
-            addr.sa_data[2] = 0;
-            addr.sa_data[3] = 0;
-            addr.sa_data[4] = 0;
-            addr.sa_data[5] = 0;
-            int ret = sl_Connect(socket->s_fd, &addr, sizeof(addr));
-            if (ret == SL_EALREADY) {
-                // connection still in progress
-                return 0;
-            }
-            socket->s_nonblocking_connect = false; // now connected
-        }
-
         mp_uint_t flags = arg;
         ret = 0;
         int fd = socket->s_fd;
@@ -1350,11 +1330,30 @@ STATIC int cc3100_socket_ioctl(mod_network_socket_obj_t *socket_in, mp_uint_t re
         }
 
         // check return of select
-        if (SL_FD_ISSET(fd, &rfds)) {
-            ret |= MP_STREAM_POLL_RD;
-        }
-        if (SL_FD_ISSET(fd, &wfds)) {
-            ret |= MP_STREAM_POLL_WR;
+        if (nfds > 0) {
+            if (SL_FD_ISSET(fd, &rfds)) {
+                ret |= MP_STREAM_POLL_RD;
+            }
+            if (SL_FD_ISSET(fd, &wfds)) {
+                ret |= MP_STREAM_POLL_WR;
+                if (socket->s_nonblocking_connect) {
+                    // CC3100 is in progress of a non-blocking connect, and since
+                    // the socket is now ready for writing that means it should
+                    // have completed the connect.  We need to call sl_Connect once
+                    // more to actually finish the connection.
+                    SlSockAddr_t addr;
+                    addr.sa_family = SL_AF_INET;
+                    addr.sa_data[0] = 0;
+                    addr.sa_data[1] = 0;
+                    addr.sa_data[2] = 0;
+                    addr.sa_data[3] = 0;
+                    addr.sa_data[4] = 0;
+                    addr.sa_data[5] = 0;
+                    int ret = sl_Connect(socket->s_fd, &addr, sizeof(addr));
+                    (void)ret; // TODO probably should check the return value
+                    socket->s_nonblocking_connect = false; // now connected
+                }
+            }
         }
     } else {
         *_errno = MP_EINVAL;
