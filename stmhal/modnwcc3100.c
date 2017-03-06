@@ -241,6 +241,7 @@ typedef struct _cc3100_socket_obj_t {
     mp_obj_t nic;
     mod_network_nic_type_t *nic_type;
     int16_t s_fd;
+    uint32_t s_timeout;
 } cc3100_socket_obj_t;
 
 STATIC int cc3100_socket_settimeout(mod_network_socket_obj_t *socket, mp_uint_t timeout_ms, int *_errno);
@@ -1050,6 +1051,7 @@ STATIC int cc3100_socket_socket(mod_network_socket_obj_t *socket_in, int *_errno
 
     // store state of this socket
     socket->s_fd = fd;
+    socket->s_timeout = timeout;
 
     // configure the timeout
     if (cc3100_socket_settimeout(socket_in, timeout, _errno) != 0) {
@@ -1110,6 +1112,7 @@ STATIC int cc3100_socket_accept(mod_network_socket_obj_t *socket_in, mod_network
 
     // store state in new socket object
     socket2->s_fd = fd;
+    socket2->s_timeout = -1; // TODO inherit timeout value?
 
     // TODO need to check this on cc3100
     // return ip and port
