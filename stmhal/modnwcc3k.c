@@ -74,6 +74,7 @@
     ip[2] = addr.sa_data[4]; \
     ip[3] = addr.sa_data[5];
 
+STATIC int cc3k_socket_settimeout(mod_network_socket_obj_t *socket, mp_uint_t timeout_ms, int *_errno);
 STATIC int cc3k_socket_ioctl(mod_network_socket_obj_t *socket, mp_uint_t request, mp_uint_t arg, int *_errno);
 
 int CC3000_EXPORT(errno); // for cc3000 driver
@@ -161,13 +162,16 @@ STATIC int cc3k_socket_socket(mod_network_socket_obj_t *socket, int *_errno) {
     // clear socket state
     cc3k_reset_fd_closed_state(fd);
 
+    // get the timeout that we need to configure the socket to
+    uint32_t timeout = socket->u_param.timeout;
+
     // store state of this socket
     socket->u_state = fd;
 
-    // make accept blocking by default
-    int optval = SOCK_OFF;
-    socklen_t optlen = sizeof(optval);
-    CC3000_EXPORT(setsockopt)(socket->u_state, SOL_SOCKET, SOCKOPT_ACCEPT_NONBLOCK, &optval, optlen);
+    // configure the timeout
+    if (cc3k_socket_settimeout(socket, timeout, _errno) != 0) {
+        return -1;
+    }
 
     return 0;
 }

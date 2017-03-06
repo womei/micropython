@@ -155,6 +155,8 @@ STATIC int wiznet5k_socket_bind(mod_network_socket_obj_t *socket, byte *ip, mp_u
     // indicate that this socket has been opened
     socket->u_param.domain = 1;
 
+    // TODO we should set the timeout according to socket->u_param.timeout
+
     // success
     return 0;
 }

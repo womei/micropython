@@ -55,6 +55,7 @@ STATIC mp_obj_t socket_make_new(const mp_obj_type_t *type, size_t n_args, size_t
     s->u_param.domain = MOD_NETWORK_AF_INET;
     s->u_param.type = MOD_NETWORK_SOCK_STREAM;
     s->u_param.fileno = -1;
+    s->u_param.timeout = -1; // socket defaults to blocking behaviour
     if (n_args >= 1) {
         s->u_param.domain = mp_obj_get_int(args[0]);
         if (n_args >= 2) {
@@ -318,10 +319,6 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(socket_setsockopt_obj, 4, 4, socket_s
 // otherwise, timeout is in seconds
 STATIC mp_obj_t socket_settimeout(mp_obj_t self_in, mp_obj_t timeout_in) {
     mod_network_socket_obj_t *self = self_in;
-    if (self->nic == MP_OBJ_NULL) {
-        // not connected
-        mp_raise_OSError(MP_ENOTCONN);
-    }
     mp_uint_t timeout;
     if (timeout_in == mp_const_none) {
         timeout = -1;
@@ -332,9 +329,16 @@ STATIC mp_obj_t socket_settimeout(mp_obj_t self_in, mp_obj_t timeout_in) {
         timeout = 1000 * mp_obj_get_int(timeout_in);
         #endif
     }
-    int _errno;
-    if (self->nic_type->settimeout(self, timeout, &_errno) != 0) {
-        mp_raise_OSError(_errno);
+    if (self->nic == MP_OBJ_NULL) {
+        // Socket not associated with a NIC so set timeout in general
+        // parameters block, to be used when the socket is created.
+        self->u_param.timeout = timeout;
+    } else {
+        // Socket is associated with a NIC so set the timeout right away.
+        int _errno;
+        if (self->nic_type->settimeout(self, timeout, &_errno) != 0) {
+            mp_raise_OSError(_errno);
+        }
     }
     return mp_const_none;
 }

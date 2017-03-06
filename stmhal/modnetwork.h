@@ -66,6 +66,7 @@ typedef struct _mod_network_socket_obj_t {
             uint8_t domain;
             uint8_t type;
             int8_t fileno;
+            uint32_t timeout;
         } u_param;
         mp_uint_t u_state;
     };
