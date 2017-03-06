@@ -33,6 +33,9 @@
 #define MOD_NETWORK_SOCK_DGRAM (2)
 #define MOD_NETWORK_SOCK_RAW (3)
 
+#define MOD_NETWORK_SOL_SOCKET (1)
+#define MOD_NETWORK_SO_REUSEADDR (2)
+
 struct _mod_network_socket_obj_t;
 
 typedef struct _mod_network_nic_type_t {
