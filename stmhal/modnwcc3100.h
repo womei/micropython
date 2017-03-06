@@ -45,7 +45,7 @@ extern "C" {
 #include "pin.h"
 #include "genhdr/pins.h"
 #include "spi.h"
-#include "simplelink.h"
+#include "drivers/cc3100-1.0.1.6/include/simplelink.h"
 
 #define Fd_t int
 

@@ -48,8 +48,7 @@
 #include "extint.h"
 
 #include "modnwcc3100.h"
-#include "simplelink.h"
-#include "socket.h"
+#include "drivers/cc3100-1.0.1.6/include/socket.h"
 
 #define LOG_ERR(str) printf("Error: %s\n",str)
 #define LOG_INFO(str) printf("Info: %s\n",str)
