@@ -1117,15 +1117,8 @@ STATIC int cc3100_socket_accept(mod_network_socket_obj_t *socket_in, mod_network
     socket2->s_timeout = -1; // TODO inherit timeout value?
     socket2->s_nonblocking_connect = false;
 
-    // TODO need to check this on cc3100
     // return ip and port
-    // it seems CC3000 returns little endian for accept??
-    //UNPACK_SOCKADDR(addr, ip, *port);
-    *port = (addr.sa_data[1] << 8) | addr.sa_data[0];
-    ip[3] = addr.sa_data[2];
-    ip[2] = addr.sa_data[3];
-    ip[1] = addr.sa_data[4];
-    ip[0] = addr.sa_data[5];
+    UNPACK_SOCKADDR(addr, ip, *port);
 
     return 0;
 }
