@@ -25,7 +25,7 @@
  */
 
 #include <string.h>
-#include <stdarg.h>
+#include <stdio.h>
 #include <errno.h>
 
 #include "py/nlr.h"
@@ -54,6 +54,13 @@
 #define LOG_INFO(str) printf("Info: %s\n",str)
 
 #define USE_HARD_SPI (1)
+#define IO_TRACE (0)
+
+#if IO_TRACE
+#define IO_TRACE_PREFIX(msg) printf("[IO %010u %u] " msg, (uint)mp_hal_ticks_us(), (uint)mp_hal_pin_read(PIN_IRQ))
+#else
+#define IO_TRACE_PREFIX(msg)
+#endif
 
 // *** Begin simplelink interface functions
 STATIC volatile irq_handler_t cc3100_IrqHandler = 0;
@@ -117,6 +124,8 @@ int spi_Close(Fd_t Fd)
 
 int spi_TransmitReceive(unsigned char* txBuff, unsigned char* rxBuff, int Len)
 {
+    IO_TRACE_PREFIX("SPI ");
+
     mp_hal_pin_low(PIN_CS);
     #if USE_HARD_SPI
     if (txBuff == NULL) {
@@ -131,6 +140,26 @@ int spi_TransmitReceive(unsigned char* txBuff, unsigned char* rxBuff, int Len)
     mp_machine_soft_spi_transfer(&soft_spi.base, Len, txBuff, rxBuff);
     #endif
     mp_hal_pin_high(PIN_CS);
+
+    #if IO_TRACE
+    {
+        int dir;
+        unsigned char *buf;
+        if (rxBuff == NULL) {
+            dir = 'T';
+            buf = txBuff;
+        } else {
+            dir = 'R';
+            buf = rxBuff;
+        }
+        printf("%cX len=%d buf=", dir, Len);
+        for (int i = 0; i < 16 && i < Len; ++i) {
+            printf(" %02x", buf[i]);
+        }
+        printf("\n");
+    }
+    #endif
+
     return HAL_OK;
 }
 
@@ -164,9 +193,11 @@ void NwpPowerOnPreamble(void){
     mp_hal_pin_low(PIN_EN);
 }
 void NwpPowerOn(void){
+    IO_TRACE_PREFIX("HIB=1\n");
     mp_hal_pin_high(PIN_EN);
 }
 void NwpPowerOff(void){
+    IO_TRACE_PREFIX("HIB=0\n");
     mp_hal_pin_low(PIN_EN);
 }
 
@@ -177,6 +208,7 @@ _u32 NwpSystemTicks(void)
 
 STATIC mp_obj_t cc3100_callback(mp_obj_t line) {
     if (cc3100_IrqHandler != 0) {
+        IO_TRACE_PREFIX("edge IRQ\n");
         (cc3100_IrqHandler)(line);
     }
     return mp_const_none;
@@ -206,6 +238,7 @@ void NwpUnMaskInterrupt(){
     // In that case we never get an edge and so must check if the IRQ line is
     // still high, and if so register a callback.
     if (mp_hal_pin_read(PIN_IRQ)) {
+        IO_TRACE_PREFIX("level IRQ\n");
         cc3100_callback(MP_OBJ_NEW_SMALL_INT(0));
     }
 }
