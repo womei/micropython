@@ -97,3 +97,10 @@
 
 // MMA accelerometer config
 #define MICROPY_HW_MMA_AVDD_PIN     (pin_B5)
+
+// CC3100 config
+#define MICROPY_HW_CC3100_SPI (SPIHandle1)
+#define MICROPY_HW_CC3100_RST (pin_A1) // X2
+#define MICROPY_HW_CC3100_HIB (pin_A2) // X3
+#define MICROPY_HW_CC3100_IRQ (pin_A3) // X4
+#define MICROPY_HW_CC3100_CS  (pin_A4) // X5
