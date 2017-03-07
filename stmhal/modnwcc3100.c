@@ -108,6 +108,12 @@ Fd_t spi_Open(char* pIfName, unsigned long flags)
 
     #endif
 
+    #ifdef MICROPY_HW_CC3100_RST
+    // take chip out of reset
+    mp_hal_pin_output(&MICROPY_HW_CC3100_RST);
+    mp_hal_pin_high(&MICROPY_HW_CC3100_RST);
+    #endif
+
     // CS Pin
     mp_hal_pin_output(PIN_CS);
     mp_hal_pin_high(PIN_CS);
