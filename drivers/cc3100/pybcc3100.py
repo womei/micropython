@@ -41,7 +41,7 @@ class CC3100:
         self.spi_tx(b'\x65\x87\x78\x56')
         start = time.ticks_ms()
         while self.irq.value() == 1:
-            if time.ticks_diff(time.ticks_ms(), start) > 1000:
+            if time.ticks_diff(time.ticks_ms(), start) > timeout:
                 raise OSError("timeout in sync")
         self.spi_rx(self.buf8)
         assert self.buf8[0] == 0xbc | self.seq_num
@@ -56,11 +56,18 @@ class CC3100:
         self.spi_rx(self.buf4) # get first 4 bytes of response
         return len
 
+    def calc_pad(self, l):
+        # need to pad to make the payload a multiple of 4 bytes
+        if l & 3 == 0:
+            return 0
+        else:
+            return 4 - (l & 3)
+
     def start(self):
         self.rst.value(1)
         time.sleep_ms(800)
         self.hib.value(1)
-        self.sync(0x8008) # this value is guess
+        self.sync(0x0008, timeout=2000)
         self.spi_rx(self.buf8)
         print(self.buf8, self.irq())
         self.spi_rx(self.buf4)
@@ -168,15 +175,13 @@ class CC3100:
     def wlan_connect(self, ssid, password):
         ssid = bytes(ssid, 'utf8')
         password = bytes(password, 'utf8')
-        if (len(ssid) + len(password)) & 1 == 0:
-            n_pad = 1
-        else:
-            n_pad = 0
+        n = 9 + len(ssid) + len(password)
+        n_pad = self.calc_pad(n)
         self.spi_tx(b'\x21\x43\x34\x12')
         buf = self.buf4
         buf[0] = 0x80
         buf[1] = 0x8c
-        buf[2] = 9 + len(ssid) + len(password) + n_pad
+        buf[2] = n + n_pad
         buf[3] = 0x00
         self.spi_tx(buf)
         buf = bytearray(9)
@@ -185,7 +190,7 @@ class CC3100:
         #buf[2:8] = bssid
         buf[8] = len(password)
         self.spi_tx(buf + ssid + password + b'\x00' * n_pad)
-        self.sync(0x8c80)
+        self.sync(0x8c80, timeout=5000)
         self.spi_rx(self.buf4)
         print(self.buf4)
 
@@ -213,15 +218,13 @@ class CC3100:
 
     def get_host_by_name(self, host):
         host = bytes(host, 'utf8')
-        if len(host) & 1 == 0:
-            n_pad = 2
-        else:
-            n_pad = 1
+        n = 4 + len(host)
+        n_pad = self.calc_pad(n)
         self.spi_tx(b'\x21\x43\x34\x12')
         buf = self.buf4
         buf[0] = 0x20
         buf[1] = 0x9c
-        buf[2] = 4 + len(host) + n_pad
+        buf[2] = n + n_pad
         buf[3] = 0
         self.spi_tx(buf)
         buf[0] = len(host)
@@ -248,36 +251,61 @@ class CC3100:
 
     def socket_connect(self, s, ip, port):
         ip = [int(x) for x in ip.split('.')]
+        port = ((port & 0xff) << 8) | ((port >> 8) & 0xff) # swap to network order
         self.spi_tx(b'\x21\x43\x34\x12')
         self.spi_tx(b'\x06\x94\x0c\x00')
-        self.spi_tx(struct.pack('<HBBHHBBBB', 0, s, 0x20, port, 0, ip[0], ip[1], ip[2], ip[3]))
+        family = 0x20
+        self.spi_tx(struct.pack('<HBBHHBBBB', 0, s, family, port, 0, ip[0], ip[1], ip[2], ip[3]))
         self.sync(0x9406)
         self.spi_rx(self.buf4)
+        ret_code = self.buf4[0] | self.buf4[1] << 8
+        assert ret_code == 0
+        assert self.buf4[2] == s
 
         # wait for async event
-        self.sync(0x9006, timeout=5000)
+        self.sync(0x1006, timeout=5000)
         buf = bytearray(8)
         self.spi_rx(buf)
+        ret_code, = struct.unpack('<h', buf)
+        assert buf[2] == s
+        if ret_code != 0:
+            raise OSError(-ret_code)
 
     def socket_send(self, s, buf):
-        payload_len = (len(buf) + 3) // 4 * 4 # multiple of 4
-        n_pad = payload_len - len(buf)
+        n = 4 + len(buf)
+        n_pad = self.calc_pad(n)
         self.spi_tx(b'\x21\x43\x34\x12')
-        self.spi_tx(struct.pack('<HHHBB', 0x940c, payload_len, len(buf), s, 8))
+        self.spi_tx(struct.pack('<HHHBB', 0x940c, n + n_pad, len(buf), s, 8))
         self.spi_tx(buf)
         self.spi_tx(b'\x00' * n_pad)
         # no sync!
+        return len(buf)
 
     def socket_recv(self, s, n):
         self.spi_tx(b'\x21\x43\x34\x12')
         self.spi_tx(struct.pack('<HHHBB', 0x940a, 4, n, s, 0))
 
-        # funny async event?
-        self.sync(timeout=5000)
+        # wait for async event
+        self.sync(0x100a, timeout=10000)
         self.spi_rx(self.buf4)
-        buf = bytearray(n)
+        ret_code, = struct.unpack('<h', self.buf4)
+        assert self.buf4[2] == s
+        if ret_code < 0:
+            raise OSError(-ret_code)
+        buf = bytearray(ret_code)
         self.spi_rx(buf)
-        return buf
+        return bytes(buf)
+
+    def socket_close(self, s):
+        # doesn't work if the socket was closed by the other side
+        self.spi_tx(b'\x21\x43\x34\x12')
+        self.spi_tx(struct.pack('<HHBBBB', 0x9402, 4, s, 0, 0, 0))
+        self.sync(0x1402)
+        self.spi_rx(self.buf4)
+        ret_code, = struct.unpack('<h', self.buf4)
+        assert self.buf4[2] == s
+        if ret_code < 0:
+            raise OSError(-ret_code)
 
 # pin and spi connection
 p_rst = Pin('X2', Pin.OUT)
@@ -332,7 +360,12 @@ for host in (
     print(host, cc3100.get_host_by_name(host))
 
 # create a socket and use it
-s = cc3100.socket_create()
-cc3100.socket_connect(s, '176.58.119.26', 80)
-cc3100.socket_send(s, 'GET / \r\n\r\n')
-print(cc3100.socket_recv(s, 100))
+for i in range(2):
+    s = cc3100.socket_create()
+    print('socket descriptor:', s)
+    cc3100.socket_connect(s, '176.58.119.26', 80)
+    #cc3100.socket_connect(s, '192.168.1.105', 8000)
+    cc3100.socket_send(s, b'GET /ks/test.html HTTP/1.0\r\nHost: micropython.org\r\n\r\n')
+    print(cc3100.socket_recv(s, 100))
+    print(cc3100.socket_recv(s, 200))
+    cc3100.socket_close(s)
