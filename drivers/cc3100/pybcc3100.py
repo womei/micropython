@@ -195,20 +195,12 @@ class CC3100:
         print(self.buf4)
 
         # wait for async connection event
-        self.sync(0x8880, timeout=5000)
-        assert self.buf4[0] == 0x17
-        assert self.buf4[1] == 0x01
-        assert self.buf4[2] == 0x00
-        assert self.buf4[3] == 0x00
+        self.sync(0x0880, timeout=5000)
         self.spi_rx(bytearray(76))
         print('got wlan connect event')
 
         # wait for async IP acquired event
         self.sync(0x1825, timeout=5000)
-        assert self.buf4[0] == 0x17
-        assert self.buf4[1] == 0x01
-        assert self.buf4[2] == 0x00
-        assert self.buf4[3] == 0x00
         buf = bytearray(12)
         self.spi_rx(buf)
         print('got IP address')
