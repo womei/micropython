@@ -276,6 +276,29 @@ SRC_MOD += $(addprefix $(CC3100_DIR)/source/,\
 	)
 endif
 
+# for CC3120 module
+ifeq ($(MICROPY_PY_CC3120),1)
+CC3120_DIR=drivers/cc3120-1.30.00.03
+$(BUILD)/$(CC3120_DIR)/ti/drivers/net/wifi/source/driver.o: CFLAGS += -fno-strict-aliasing
+INC += -I$(TOP)/$(CC3120_DIR)
+CFLAGS_MOD += -DMICROPY_PY_CC3120=1
+SRC_MOD += modnwcc3120.c
+SRC_MOD += $(addprefix $(CC3120_DIR)/ti/drivers/net/wifi/,\
+	eventreg.c \
+	source/device.c \
+	source/driver.c \
+	source/flowcont.c \
+	source/fs.c \
+	source/netapp.c \
+	source/netcfg.c \
+	source/netutil.c \
+	source/nonos.c \
+	source/sl_socket.c \
+	source/spawn.c \
+	source/wlan.c \
+	)
+endif
+
 OBJ =
 OBJ += $(PY_O)
 OBJ += $(addprefix $(BUILD)/, $(SRC_LIB:.c=.o))
