@@ -259,6 +259,8 @@ ESPIDF_ESP32_O = $(addprefix $(ESPCOMP)/esp32/,\
 	wifi_init.o \
 	wifi_internal.o \
 	sleep_modes.o \
+	spiram.o \
+	spiram_psram.o \
 	)
 
 ESPIDF_HEAP_O = $(addprefix $(ESPCOMP)/heap/,\
