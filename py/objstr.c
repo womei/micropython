@@ -1918,17 +1918,11 @@ mp_int_t mp_obj_str_get_buffer(mp_obj_t self_in, mp_buffer_info_t *bufinfo, mp_u
     }
 }
 
-STATIC const mp_rom_map_elem_t str8_locals_dict_table[] = {
+STATIC const mp_rom_map_elem_t str_locals_dict_table[] = {
 #if MICROPY_CPYTHON_COMPAT
+    // This locals dict is shared by str and bytes so needs both of these methods
     { MP_ROM_QSTR(MP_QSTR_decode), MP_ROM_PTR(&bytes_decode_obj) },
-    #if !MICROPY_PY_BUILTINS_STR_UNICODE
-    // If we have separate unicode type, then here we have methods only
-    // for bytes type, and it should not have encode() methods. Otherwise,
-    // we have non-compliant-but-practical bytestring type, which shares
-    // method table with bytes, so they both have encode() and decode()
-    // methods (which should do type checking at runtime).
     { MP_ROM_QSTR(MP_QSTR_encode), MP_ROM_PTR(&str_encode_obj) },
-    #endif
 #endif
     { MP_ROM_QSTR(MP_QSTR_find), MP_ROM_PTR(&str_find_obj) },
     { MP_ROM_QSTR(MP_QSTR_rfind), MP_ROM_PTR(&str_rfind_obj) },
@@ -1963,8 +1957,7 @@ STATIC const mp_rom_map_elem_t str8_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_isupper), MP_ROM_PTR(&str_isupper_obj) },
     { MP_ROM_QSTR(MP_QSTR_islower), MP_ROM_PTR(&str_islower_obj) },
 };
-
-STATIC MP_DEFINE_CONST_DICT(str8_locals_dict, str8_locals_dict_table);
+MP_DEFINE_CONST_DICT(mp_obj_str_locals_dict, str_locals_dict_table);
 
 #if !MICROPY_PY_BUILTINS_STR_UNICODE
 STATIC mp_obj_t mp_obj_new_str_iterator(mp_obj_t str, mp_obj_iter_buf_t *iter_buf);
@@ -1978,7 +1971,7 @@ const mp_obj_type_t mp_type_str = {
     .subscr = bytes_subscr,
     .getiter = mp_obj_new_str_iterator,
     .buffer_p = { .get_buffer = mp_obj_str_get_buffer },
-    .locals_dict = (mp_obj_dict_t*)&str8_locals_dict,
+    .locals_dict = (mp_obj_dict_t*)&mp_obj_str_locals_dict,
 };
 #endif
 
@@ -1992,7 +1985,7 @@ const mp_obj_type_t mp_type_bytes = {
     .subscr = bytes_subscr,
     .getiter = mp_obj_new_bytes_iterator,
     .buffer_p = { .get_buffer = mp_obj_str_get_buffer },
-    .locals_dict = (mp_obj_dict_t*)&str8_locals_dict,
+    .locals_dict = (mp_obj_dict_t*)&mp_obj_str_locals_dict,
 };
 
 // The zero-length bytes object, with data that includes a null-terminating byte
