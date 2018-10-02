@@ -161,6 +161,7 @@ Classes
    machine.Pin.rst
    machine.Signal.rst
    machine.ADC.rst
+   machine.ADCBlock.rst
    machine.UART.rst
    machine.SPI.rst
    machine.I2C.rst
