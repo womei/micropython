@@ -30,6 +30,8 @@
 
 typedef I2C_TypeDef i2c_slave_t;
 
+extern uint8_t i2c_slave_enabled;
+
 void i2c_slave_init_helper(i2c_slave_t *i2c, int addr);
 
 static inline void i2c_slave_init(i2c_slave_t *i2c, int irqn, int irq_pri, int addr) {
@@ -58,9 +60,10 @@ static inline void i2c_slave_shutdown(i2c_slave_t *i2c, int irqn) {
 void i2c_slave_ev_irq_handler(i2c_slave_t *i2c);
 
 // These should be provided externally
-int i2c_slave_process_addr_match(int rw);
-int i2c_slave_process_rx_byte(uint8_t val);
-void i2c_slave_process_rx_end(void);
-uint8_t i2c_slave_process_tx_byte(void);
+int i2c_slave_process_addr_match(i2c_slave_t *i2c, int rw);
+int i2c_slave_process_rx_byte(i2c_slave_t *i2c, uint8_t val);
+void i2c_slave_process_rx_end(i2c_slave_t *i2c);
+uint8_t i2c_slave_process_tx_byte(i2c_slave_t *i2c);
+void i2c_slave_process_tx_end(i2c_slave_t *i2c);
 
 #endif // MICROPY_INCLUDED_STM32_I2CSLAVE_H
