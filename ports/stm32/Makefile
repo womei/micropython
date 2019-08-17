@@ -250,6 +250,7 @@ SRC_C = \
 	bufhelper.c \
 	dma.c \
 	i2c.c \
+	i2cslave.c \
 	pyb_i2c.c \
 	spi.c \
 	pyb_spi.c \
@@ -262,6 +263,7 @@ SRC_C = \
 	gccollect.c \
 	help.c \
 	machine_i2c.c \
+	machine_i2cslave.c \
 	machine_spi.c \
 	machine_uart.c \
 	modmachine.c \

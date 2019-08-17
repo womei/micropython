@@ -306,6 +306,9 @@ extern const struct _mp_obj_module_t mp_module_onewire;
     /* pointers to all Timer objects (if they have been created) */ \
     struct _pyb_timer_obj_t *pyb_timer_obj_all[MICROPY_HW_MAX_TIMER]; \
     \
+    /* objects holding the memory for I2CSraveMem */ \
+    mp_obj_t pyb_i2cslave_mem[4]; \
+    \
     /* stdio is repeated on this UART object if it's not null */ \
     struct _pyb_uart_obj_t *pyb_stdio_uart; \
     \

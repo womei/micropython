@@ -82,6 +82,7 @@
 #include "can.h"
 #include "dma.h"
 #include "i2c.h"
+#include "i2cslave.h"
 #include "usb.h"
 
 extern void __fatal_error(const char*);
@@ -857,7 +858,11 @@ void CAN3_SCE_IRQHandler(void) {
 #if defined(MICROPY_HW_I2C1_SCL)
 void I2C1_EV_IRQHandler(void) {
     IRQ_ENTER(I2C1_EV_IRQn);
-    i2c_ev_irq_handler(1);
+    if (i2c_slave_enabled & 1) {
+        i2c_slave_ev_irq_handler(I2C1);
+    } else {
+        i2c_ev_irq_handler(1);
+    }
     IRQ_EXIT(I2C1_EV_IRQn);
 }
 
@@ -871,7 +876,11 @@ void I2C1_ER_IRQHandler(void) {
 #if defined(MICROPY_HW_I2C2_SCL)
 void I2C2_EV_IRQHandler(void) {
     IRQ_ENTER(I2C2_EV_IRQn);
-    i2c_ev_irq_handler(2);
+    if (i2c_slave_enabled & 2) {
+        i2c_slave_ev_irq_handler(I2C2);
+    } else {
+        i2c_ev_irq_handler(2);
+    }
     IRQ_EXIT(I2C2_EV_IRQn);
 }
 
@@ -885,7 +894,11 @@ void I2C2_ER_IRQHandler(void) {
 #if defined(MICROPY_HW_I2C3_SCL)
 void I2C3_EV_IRQHandler(void) {
     IRQ_ENTER(I2C3_EV_IRQn);
-    i2c_ev_irq_handler(3);
+    if (i2c_slave_enabled & 4) {
+        i2c_slave_ev_irq_handler(I2C3);
+    } else {
+        i2c_ev_irq_handler(3);
+    }
     IRQ_EXIT(I2C3_EV_IRQn);
 }
 
@@ -899,7 +912,11 @@ void I2C3_ER_IRQHandler(void) {
 #if defined(MICROPY_HW_I2C4_SCL)
 void I2C4_EV_IRQHandler(void) {
     IRQ_ENTER(I2C4_EV_IRQn);
-    i2c_ev_irq_handler(4);
+    if (i2c_slave_enabled & 8) {
+        i2c_slave_ev_irq_handler(I2C4);
+    } else {
+        i2c_ev_irq_handler(4);
+    }
     IRQ_EXIT(I2C4_EV_IRQn);
 }
 
