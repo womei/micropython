@@ -28,7 +28,7 @@
 
 #include "py/mphal.h"
 #include "lib/oofatfs/ff.h"
-#include "extmod/uzlib/uzlib.h"
+#include "lib/uzlib/uzlib.h"
 #include "mboot.h"
 
 #if MBOOT_FSLOAD
