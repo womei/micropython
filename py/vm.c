@@ -1101,32 +1101,33 @@ unwind_return:
                     #endif
                     return MP_VM_RETURN_NORMAL;
 
-                ENTRY(MP_BC_RAISE_VARARGS): {
+                ENTRY(MP_BC_RAISE_LAST): {
                     MARK_EXC_IP_SELECTIVE();
-                    mp_uint_t unum = *ip;
-                    mp_obj_t obj;
-                    if (unum == 2) {
-                        mp_warning(NULL, "exception chaining not supported");
-                        // ignore (pop) "from" argument
-                        sp--;
-                    }
-                    if (unum == 0) {
-                        // search for the inner-most previous exception, to reraise it
-                        obj = MP_OBJ_NULL;
-                        for (mp_exc_stack_t *e = exc_sp; e >= exc_stack; e--) {
-                            if (e->prev_exc != NULL) {
-                                obj = MP_OBJ_FROM_PTR(e->prev_exc);
-                                break;
-                            }
+                    // search for the inner-most previous exception, to reraise it
+                    mp_obj_t obj = MP_OBJ_NULL;
+                    for (mp_exc_stack_t *e = exc_sp; e >= exc_stack; --e) {
+                        if (e->prev_exc != NULL) {
+                            obj = MP_OBJ_FROM_PTR(e->prev_exc);
+                            break;
                         }
-                        if (obj == MP_OBJ_NULL) {
-                            obj = mp_obj_new_exception_msg(&mp_type_RuntimeError, "no active exception to reraise");
-                            RAISE(obj);
-                        }
-                    } else {
-                        obj = TOP();
                     }
-                    obj = mp_make_raise_obj(obj);
+                    if (obj == MP_OBJ_NULL) {
+                        obj = mp_obj_new_exception_msg(&mp_type_RuntimeError, "no active exception to reraise");
+                    }
+                    RAISE(obj);
+                }
+
+                ENTRY(MP_BC_RAISE_OBJ): {
+                    MARK_EXC_IP_SELECTIVE();
+                    mp_obj_t obj = mp_make_raise_obj(TOP());
+                    RAISE(obj);
+                }
+
+                ENTRY(MP_BC_RAISE_FROM): {
+                    MARK_EXC_IP_SELECTIVE();
+                    mp_warning(NULL, "exception chaining not supported");
+                    sp--; // ignore (pop) "from" argument
+                    mp_obj_t obj = mp_make_raise_obj(TOP());
                     RAISE(obj);
                 }
 
