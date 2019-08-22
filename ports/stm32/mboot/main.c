@@ -28,7 +28,7 @@
 #include <string.h>
 
 #include "py/mphal.h"
-#include "extmod/crypto-algorithms/sha256.c"
+#include "lib/crypto-algorithms/sha256.c"
 #include "usbd_core.h"
 #include "storage.h"
 #include "i2cslave.h"
