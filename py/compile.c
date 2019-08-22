@@ -1080,7 +1080,11 @@ STATIC void compile_raise_stmt(compiler_t *comp, mp_parse_node_struct_t *pns) {
         pns = (mp_parse_node_struct_t*)pns->nodes[0];
         compile_node(comp, pns->nodes[0]);
         compile_node(comp, pns->nodes[1]);
-        EMIT_ARG(raise_varargs, 2);
+        EMIT(pop_top);
+        EMIT_ARG(raise_varargs, 1);
+        if (comp->pass == MP_PASS_SCOPE) {
+            mp_warning(NULL, "exception chaining not supported");
+        }
     } else {
         // raise x
         compile_node(comp, pns->nodes[0]);

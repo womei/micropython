@@ -93,7 +93,6 @@
 
 #define MP_BC_RETURN_VALUE       (0x5b)
 #define MP_BC_RAISE_OBJ          (0x49)
-#define MP_BC_RAISE_FROM         (0x4a)
 #define MP_BC_YIELD_VALUE        (0x5d)
 #define MP_BC_YIELD_FROM         (0x5e)
 

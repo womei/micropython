@@ -100,7 +100,6 @@ static const void *const entry_table[256] = {
     [MP_BC_CALL_METHOD_VAR_KW] = &&entry_MP_BC_CALL_METHOD_VAR_KW,
     [MP_BC_RETURN_VALUE] = &&entry_MP_BC_RETURN_VALUE,
     [MP_BC_RAISE_OBJ] = &&entry_MP_BC_RAISE_OBJ,
-    [MP_BC_RAISE_FROM] = &&entry_MP_BC_RAISE_FROM,
     [MP_BC_YIELD_VALUE] = &&entry_MP_BC_YIELD_VALUE,
     [MP_BC_YIELD_FROM] = &&entry_MP_BC_YIELD_FROM,
     [MP_BC_IMPORT_NAME] = &&entry_MP_BC_IMPORT_NAME,

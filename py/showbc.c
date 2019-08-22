@@ -504,10 +504,6 @@ const byte *mp_bytecode_print_str(const byte *ip) {
             printf("RAISE_OBJ");
             break;
 
-        case MP_BC_RAISE_FROM:
-            printf("RAISE_FROM");
-            break;
-
         case MP_BC_YIELD_VALUE:
             printf("YIELD_VALUE");
             break;

@@ -1120,14 +1120,6 @@ unwind_return:
                     RAISE(obj);
                 }
 
-                ENTRY(MP_BC_RAISE_FROM): {
-                    MARK_EXC_IP_SELECTIVE();
-                    mp_warning(NULL, "exception chaining not supported");
-                    sp--; // ignore (pop) "from" argument
-                    mp_obj_t obj = mp_make_raise_obj(TOP());
-                    RAISE(obj);
-                }
-
                 ENTRY(MP_BC_YIELD_VALUE):
 yield:
                     nlr_pop();
