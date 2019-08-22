@@ -881,11 +881,11 @@ void mp_emit_bc_return_value(emit_t *emit) {
 }
 
 void mp_emit_bc_raise_varargs(emit_t *emit, mp_uint_t n_args) {
-    MP_STATIC_ASSERT(MP_BC_RAISE_LAST + 1 == MP_BC_RAISE_OBJ);
-    MP_STATIC_ASSERT(MP_BC_RAISE_LAST + 2 == MP_BC_RAISE_FROM);
+    MP_STATIC_ASSERT(MP_BC_RAISE_OBJ-1 + 1 == MP_BC_RAISE_OBJ);
+    MP_STATIC_ASSERT(MP_BC_RAISE_OBJ-1 + 2 == MP_BC_RAISE_FROM);
     assert(n_args <= 2);
     emit_bc_pre(emit, -n_args);
-    emit_write_bytecode_byte(emit, MP_BC_RAISE_LAST + n_args);
+    emit_write_bytecode_byte(emit, MP_BC_RAISE_OBJ-1 + n_args);
 }
 
 void mp_emit_bc_yield(emit_t *emit, int kind) {

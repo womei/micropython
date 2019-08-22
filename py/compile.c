@@ -1073,7 +1073,8 @@ STATIC void compile_yield_stmt(compiler_t *comp, mp_parse_node_struct_t *pns) {
 STATIC void compile_raise_stmt(compiler_t *comp, mp_parse_node_struct_t *pns) {
     if (MP_PARSE_NODE_IS_NULL(pns->nodes[0])) {
         // raise
-        EMIT_ARG(raise_varargs, 0);
+        EMIT(load_null);
+        EMIT_ARG(raise_varargs, 1);
     } else if (MP_PARSE_NODE_IS_STRUCT_KIND(pns->nodes[0], PN_raise_stmt_arg)) {
         // raise x from y
         pns = (mp_parse_node_struct_t*)pns->nodes[0];

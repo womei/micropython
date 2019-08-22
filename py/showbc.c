@@ -500,10 +500,6 @@ const byte *mp_bytecode_print_str(const byte *ip) {
             printf("RETURN_VALUE");
             break;
 
-        case MP_BC_RAISE_LAST:
-            printf("RAISE_LAST");
-            break;
-
         case MP_BC_RAISE_OBJ:
             printf("RAISE_OBJ");
             break;

@@ -1101,25 +1101,22 @@ unwind_return:
                     #endif
                     return MP_VM_RETURN_NORMAL;
 
-                ENTRY(MP_BC_RAISE_LAST): {
-                    MARK_EXC_IP_SELECTIVE();
-                    // search for the inner-most previous exception, to reraise it
-                    mp_obj_t obj = MP_OBJ_NULL;
-                    for (mp_exc_stack_t *e = exc_sp; e >= exc_stack; --e) {
-                        if (e->prev_exc != NULL) {
-                            obj = MP_OBJ_FROM_PTR(e->prev_exc);
-                            break;
-                        }
-                    }
-                    if (obj == MP_OBJ_NULL) {
-                        obj = mp_obj_new_exception_msg(&mp_type_RuntimeError, "no active exception to reraise");
-                    }
-                    RAISE(obj);
-                }
-
                 ENTRY(MP_BC_RAISE_OBJ): {
                     MARK_EXC_IP_SELECTIVE();
-                    mp_obj_t obj = mp_make_raise_obj(TOP());
+                    mp_obj_t obj = TOP();
+                    if (obj == MP_OBJ_NULL) {
+                        // search for the inner-most previous exception, to reraise it
+                        for (mp_exc_stack_t *e = exc_sp; e >= exc_stack; --e) {
+                            if (e->prev_exc != NULL) {
+                                obj = MP_OBJ_FROM_PTR(e->prev_exc);
+                                break;
+                            }
+                        }
+                        if (obj == MP_OBJ_NULL) {
+                            obj = mp_obj_new_exception_msg(&mp_type_RuntimeError, "no active exception to reraise");
+                        }
+                    }
+                    obj = mp_make_raise_obj(obj);
                     RAISE(obj);
                 }
 
