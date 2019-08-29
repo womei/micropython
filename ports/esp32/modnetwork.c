@@ -43,9 +43,10 @@
 #include "netutils.h"
 #include "esp_eth.h"
 #include "esp_wifi.h"
-#include "esp_wifi_types.h"
+//#include "esp_wifi_types.h" needs esp_wifi/include dir
 #include "esp_log.h"
-#include "esp_event_loop.h"
+//#include "esp_event_loop.h"
+//esp_event.h
 #include "lwip/dns.h"
 #include "tcpip_adapter.h"
 #include "mdns.h"
@@ -650,9 +651,11 @@ STATIC mp_obj_t esp_config(size_t n_args, const mp_obj_t *args, mp_map_t *kwargs
                   ESP_EXCEPTIONS(esp_wifi_get_mac(self->if_id, mac));
                   return mp_obj_new_bytes(mac, sizeof(mac));
 
+                  /*
               case ESP_IF_ETH:
                   esp_eth_get_mac(mac);
                   return mp_obj_new_bytes(mac, sizeof(mac));
+                  */
               default:
                   goto unknown;
             }
@@ -757,12 +760,14 @@ STATIC const mp_rom_map_elem_t mp_module_network_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_PHY_TLK110), MP_ROM_INT(PHY_TLK110) },
 
     // ETH Clock modes from ESP-IDF
+    /*
     { MP_ROM_QSTR(MP_QSTR_ETH_CLOCK_GPIO0_IN), MP_ROM_INT(ETH_CLOCK_GPIO0_IN) },
     // Disabled at Aug 22nd 2018, reenabled Jan 28th 2019 in ESP-IDF
     // Because we use older SDK, it's currently disabled
     //{ MP_ROM_QSTR(MP_QSTR_ETH_CLOCK_GPIO0_OUT), MP_ROM_INT(ETH_CLOCK_GPIO0_OUT) },
     { MP_ROM_QSTR(MP_QSTR_ETH_CLOCK_GPIO16_OUT), MP_ROM_INT(ETH_CLOCK_GPIO16_OUT) },
     { MP_ROM_QSTR(MP_QSTR_ETH_CLOCK_GPIO17_OUT), MP_ROM_INT(ETH_CLOCK_GPIO17_OUT) },
+    */
 
     { MP_ROM_QSTR(MP_QSTR_STAT_IDLE), MP_ROM_INT(STAT_IDLE)},
     { MP_ROM_QSTR(MP_QSTR_STAT_CONNECTING), MP_ROM_INT(STAT_CONNECTING)},

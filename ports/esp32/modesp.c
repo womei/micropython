@@ -29,7 +29,8 @@
 
 #include <stdio.h>
 
-#include "rom/gpio.h"
+//#include "rom/gpio.h"
+//esp32/rom/gpio.h
 #include "esp_log.h"
 #include "esp_spi_flash.h"
 

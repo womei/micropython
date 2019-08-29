@@ -26,12 +26,13 @@
  * THE SOFTWARE.
  */
 
+#if 0
 #include "py/runtime.h"
 #include "py/mphal.h"
 
-#include "eth_phy/phy.h"
-#include "eth_phy/phy_tlk110.h"
-#include "eth_phy/phy_lan8720.h"
+//#include "eth_phy/phy.h"
+//#include "eth_phy/phy_tlk110.h"
+//#include "eth_phy/phy_lan8720.h"
 #include "tcpip_adapter.h"
 
 #include "modnetwork.h"
@@ -216,3 +217,5 @@ const mp_obj_type_t lan_if_type = {
     .name = MP_QSTR_LAN,
     .locals_dict = (mp_obj_dict_t*)&lan_if_locals_dict,
 };
+
+#endif

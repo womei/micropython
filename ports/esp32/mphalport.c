@@ -31,7 +31,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "rom/uart.h"
+#include "esp32/rom/uart.h"
 
 #include "py/obj.h"
 #include "py/stream.h"

@@ -6,7 +6,8 @@
 
 #include <stdint.h>
 #include <alloca.h>
-#include "rom/ets_sys.h"
+//#include "rom/ets_sys.h"
+//esp32/rom/ets_sys.h
 
 // object representation and NLR handling
 #define MICROPY_OBJ_REPR                    (MICROPY_OBJ_REPR_A)

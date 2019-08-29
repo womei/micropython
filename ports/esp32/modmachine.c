@@ -32,10 +32,11 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "rom/ets_sys.h"
-#include "rom/rtc.h"
-#include "esp_clk.h"
+//#include "rom/ets_sys.h" //esp32/rom/ets_sys.h
+#include "esp32/rom/rtc.h"
+#include "esp32/clk.h"
 #include "esp_pm.h"
+#include "esp_sleep.h"
 #include "driver/touch_pad.h"
 
 #include "py/obj.h"

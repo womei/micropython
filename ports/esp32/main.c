@@ -37,7 +37,8 @@
 #include "esp_task.h"
 #include "soc/cpu.h"
 #include "esp_log.h"
-#include "esp_spiram.h"
+//#include "esp_spiram.h"
+//esp32/spiram.h
 
 #include "py/stackctrl.h"
 #include "py/nlr.h"

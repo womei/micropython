@@ -108,7 +108,7 @@ INC_ESPCOMP += -I$(ESPCOMP)/esp32/include
 INC_ESPCOMP += -I$(ESPCOMP)/espcoredump/include
 INC_ESPCOMP += -I$(ESPCOMP)/soc/include
 INC_ESPCOMP += -I$(ESPCOMP)/soc/esp32/include
-INC_ESPCOMP += -I$(ESPCOMP)/ethernet/include
+INC_ESPCOMP += -I$(ESPCOMP)/esp_eth/include
 INC_ESPCOMP += -I$(ESPCOMP)/expat/expat/expat/lib
 INC_ESPCOMP += -I$(ESPCOMP)/expat/port/include
 INC_ESPCOMP += -I$(ESPCOMP)/heap/include
@@ -125,23 +125,31 @@ INC_ESPCOMP += -I$(ESPCOMP)/tcpip_adapter/include
 INC_ESPCOMP += -I$(ESPCOMP)/lwip/lwip/src/include
 INC_ESPCOMP += -I$(ESPCOMP)/lwip/port/esp32/include
 INC_ESPCOMP += -I$(ESPCOMP)/lwip/include/apps
+INC_ESPCOMP += -I$(ESPCOMP)/lwip/include/apps/sntp
 INC_ESPCOMP += -I$(ESPCOMP)/mbedtls/mbedtls/include
 INC_ESPCOMP += -I$(ESPCOMP)/mbedtls/port/include
 INC_ESPCOMP += -I$(ESPCOMP)/mdns/include
 INC_ESPCOMP += -I$(ESPCOMP)/mdns/private_include
 INC_ESPCOMP += -I$(ESPCOMP)/micro-ecc/micro-ecc
 INC_ESPCOMP += -I$(ESPCOMP)/spi_flash/include
+INC_ESPCOMP += -I$(ESPCOMP)/spi_flash/private_include
 INC_ESPCOMP += -I$(ESPCOMP)/ulp/include
 INC_ESPCOMP += -I$(ESPCOMP)/vfs/include
 INC_ESPCOMP += -I$(ESPCOMP)/xtensa-debug-module/include
 INC_ESPCOMP += -I$(ESPCOMP)/wpa_supplicant/include
 INC_ESPCOMP += -I$(ESPCOMP)/wpa_supplicant/port/include
+INC_ESPCOMP += -I$(ESPCOMP)/wpa_supplicant/include/esp_supplicant
 INC_ESPCOMP += -I$(ESPCOMP)/ethernet/include
 INC_ESPCOMP += -I$(ESPCOMP)/app_trace/include
 INC_ESPCOMP += -I$(ESPCOMP)/app_update/include
 INC_ESPCOMP += -I$(ESPCOMP)/pthread/include
 INC_ESPCOMP += -I$(ESPCOMP)/smartconfig_ack/include
 INC_ESPCOMP += -I$(ESPCOMP)/sdmmc/include
+INC_ESPCOMP += -I$(ESPCOMP)/xtensa/include
+INC_ESPCOMP += -I$(ESPCOMP)/xtensa/esp32/include
+INC_ESPCOMP += -I$(ESPCOMP)/esp_rom/include
+INC_ESPCOMP += -I$(ESPCOMP)/esp_common/include
+INC_ESPCOMP += -I$(ESPCOMP)/esp_wifi/include
 
 # these flags are common to C and C++ compilation
 CFLAGS_COMMON = -Os -ffunction-sections -fdata-sections -fstrict-volatile-bitfields \
@@ -330,7 +338,7 @@ ESPIDF_PTHREAD_O = $(patsubst %.c,%.o,$(wildcard $(ESPCOMP)/pthread/*.c))
 # -Os because that generates subtly different code.
 # We also need custom CFLAGS for .c files because FreeRTOS has headers with
 # generic names (eg queue.h) which can clash with other files in the port.
-CFLAGS_ASM = -I$(BUILD) -I$(ESPCOMP)/esp32/include -I$(ESPCOMP)/soc/esp32/include -I$(ESPCOMP)/freertos/include/freertos -I.
+CFLAGS_ASM = -I$(BUILD) -I$(ESPCOMP)/esp32/include -I$(ESPCOMP)/soc/esp32/include -I$(ESPCOMP)/freertos/include/freertos -I. -I$(ESPCOMP)/xtensa/include -I$(ESPCOMP)/xtensa/esp32/include -I$(ESPCOMP)/esp_common/include
 $(BUILD)/$(ESPCOMP)/freertos/portasm.o: CFLAGS = $(CFLAGS_ASM)
 $(BUILD)/$(ESPCOMP)/freertos/xtensa_context.o: CFLAGS = $(CFLAGS_ASM)
 $(BUILD)/$(ESPCOMP)/freertos/xtensa_intr_asm.o: CFLAGS = $(CFLAGS_ASM)
@@ -386,7 +394,7 @@ ESPIDF_MBEDTLS_O = $(patsubst %.c,%.o,\
 
 ESPIDF_MDNS_O = $(patsubst %.c,%.o,$(wildcard $(ESPCOMP)/mdns/*.c))
 
-$(BUILD)/$(ESPCOMP)/wpa_supplicant/%.o: CFLAGS += -DEMBEDDED_SUPP -DIEEE8021X_EAPOL -DEAP_PEER_METHOD -DEAP_MSCHAPv2 -DEAP_TTLS -DEAP_TLS -DEAP_PEAP -DUSE_WPA2_TASK -DCONFIG_WPS2 -DCONFIG_WPS_PIN -DUSE_WPS_TASK -DESPRESSIF_USE -DESP32_WORKAROUND -DALLOW_EVEN_MOD -D__ets__ -Wno-strict-aliasing
+$(BUILD)/$(ESPCOMP)/wpa_supplicant/%.o: CFLAGS += -DESP_SUPPLICANT -DIEEE8021X_EAPOL -DEAP_PEER_METHOD -DEAP_TLS -DEAP_TTLS -DEAP_PEAP -DEAP_MSCHAPv2 -DUSE_WPA2_TASK -DCONFIG_WPS2 -DCONFIG_WPS_PIN -DUSE_WPS_TASK -DESPRESSIF_USE -DESP32_WORKAROUND -DCONFIG_ECC -D__ets__ -Wno-strict-aliasing -I$(ESPCOMP)/wpa_supplicant/src -Wno-implicit-function-declaration
 ESPIDF_WPA_SUPPLICANT_O = $(patsubst %.c,%.o,\
 	$(wildcard $(ESPCOMP)/wpa_supplicant/port/*.c) \
 	$(wildcard $(ESPCOMP)/wpa_supplicant/src/*/*.c) \
@@ -473,7 +481,6 @@ $(BUILD)/esp32.project.ld: $(ESPCOMP)/esp32/ld/esp32.project.ld.in $(LDGEN_FRAGM
 		--config $(SDKCONFIG_COMBINED) \
 		--kconfig $(ESPIDF)/Kconfig \
 		--fragments $(LDGEN_FRAGMENTS) \
-		--sections $(LDGEN_SECTION_INFOS) \
 		--env "IDF_TARGET=esp32" \
 		--env "IDF_CMAKE=n" \
 		--env "COMPONENT_KCONFIGS=$(ESPCOMP_KCONFIGS)" \
@@ -553,7 +560,10 @@ $(BUILD)/%.o: %.cpp
 BOOTLOADER_LIB_DIR = $(BUILD)/bootloader
 BOOTLOADER_LIB_ALL =
 
-$(BUILD)/bootloader/$(ESPCOMP)/%.o: CFLAGS += -DBOOTLOADER_BUILD=1 -I$(ESPCOMP)/bootloader_support/include_priv -I$(ESPCOMP)/bootloader_support/include -I$(ESPCOMP)/micro-ecc/micro-ecc -I$(ESPCOMP)/efuse/include -I$(ESPCOMP)/esp32 -Wno-error=format
+$(BUILD)/bootloader/$(ESPCOMP)/%.o: CFLAGS += -DBOOTLOADER_BUILD=1 -I$(ESPCOMP)/bootloader_support/include_priv -I$(ESPCOMP)/bootloader_support/include -I$(ESPCOMP)/micro-ecc/micro-ecc -I$(ESPCOMP)/efuse/include -I$(ESPCOMP)/esp_rom/include -Wno-error=format \
+	-I$(ESPCOMP)/esp_common/include \
+	-I$(ESPCOMP)/xtensa/include \
+	-I$(ESPCOMP)/xtensa/esp32/include \
 
 # libbootloader_support.a
 BOOTLOADER_LIB_ALL += bootloader_support
@@ -563,11 +573,11 @@ BOOTLOADER_LIB_BOOTLOADER_SUPPORT_OBJ = $(addprefix $(BUILD)/bootloader/$(ESPCOM
 	bootloader_support/src/bootloader_flash.o \
 	bootloader_support/src/bootloader_init.o \
 	bootloader_support/src/bootloader_random.o \
-	bootloader_support/src/bootloader_sha.o \
+	bootloader_support/src/esp32/bootloader_sha.o \
+	bootloader_support/src/bootloader_flash_config.o \
 	bootloader_support/src/bootloader_utility.o \
 	bootloader_support/src/flash_qio_mode.o \
-	bootloader_support/src/secure_boot_signatures.o \
-	bootloader_support/src/secure_boot.o \
+	bootloader_support/src/esp32/secure_boot.o \
 	bootloader_support/src/esp_image_format.o \
 	bootloader_support/src/flash_encrypt.o \
 	bootloader_support/src/flash_partitions.o \
@@ -666,8 +676,9 @@ BOOTLOADER_LDFLAGS += -Wl,-EL
 BOOTLOADER_LDFLAGS += -Wl,-Map=$(@:.elf=.map) -Wl,--cref
 BOOTLOADER_LDFLAGS += -T $(ESPCOMP)/bootloader/subproject/main/esp32.bootloader.ld
 BOOTLOADER_LDFLAGS += -T $(ESPCOMP)/bootloader/subproject/main/esp32.bootloader.rom.ld
-BOOTLOADER_LDFLAGS += -T $(ESPCOMP)/esp32/ld/esp32.rom.ld
-BOOTLOADER_LDFLAGS += -T $(ESPCOMP)/esp32/ld/esp32.rom.spiram_incompatible_fns.ld
+BOOTLOADER_LDFLAGS += -T $(ESPCOMP)/esp_rom/esp32/ld/esp32.rom.ld
+BOOTLOADER_LDFLAGS += -T $(ESPCOMP)/esp_rom/esp32/ld/esp32.rom.newlib-funcs.ld
+#BOOTLOADER_LDFLAGS += -T $(ESPCOMP)/esp32/ld/esp32.rom.spiram_incompatible_fns.ld
 BOOTLOADER_LDFLAGS += -T $(ESPCOMP)/esp32/ld/esp32.peripherals.ld
 
 BOOTLOADER_OBJ_DIRS = $(sort $(dir $(BOOTLOADER_OBJ_ALL)))

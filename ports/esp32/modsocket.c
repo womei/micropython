@@ -277,7 +277,7 @@ STATIC mp_obj_t socket_bind(const mp_obj_t arg0, const mp_obj_t arg1) {
     socket_obj_t *self = MP_OBJ_TO_PTR(arg0);
     struct addrinfo *res;
     _socket_getaddrinfo(arg1, &res);
-    int r = lwip_bind_r(self->fd, res->ai_addr, res->ai_addrlen);
+    int r = lwip_bind(self->fd, res->ai_addr, res->ai_addrlen);
     lwip_freeaddrinfo(res);
     if (r < 0) exception_from_errno(errno);
     return mp_const_none;
@@ -287,7 +287,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(socket_bind_obj, socket_bind);
 STATIC mp_obj_t socket_listen(const mp_obj_t arg0, const mp_obj_t arg1) {
     socket_obj_t *self = MP_OBJ_TO_PTR(arg0);
     int backlog = mp_obj_get_int(arg1);
-    int r = lwip_listen_r(self->fd, backlog);
+    int r = lwip_listen(self->fd, backlog);
     if (r < 0) exception_from_errno(errno);
     return mp_const_none;
 }
@@ -302,7 +302,7 @@ STATIC mp_obj_t socket_accept(const mp_obj_t arg0) {
     int new_fd = -1;
     for (int i=0; i<=self->retries; i++) {
         MP_THREAD_GIL_EXIT();
-        new_fd = lwip_accept_r(self->fd, &addr, &addr_len);
+        new_fd = lwip_accept(self->fd, &addr, &addr_len);
         MP_THREAD_GIL_ENTER();
         if (new_fd >= 0) break;
         if (errno != EAGAIN) exception_from_errno(errno);
@@ -342,7 +342,7 @@ STATIC mp_obj_t socket_connect(const mp_obj_t arg0, const mp_obj_t arg1) {
     struct addrinfo *res;
     _socket_getaddrinfo(arg1, &res);
     MP_THREAD_GIL_EXIT();
-    int r = lwip_connect_r(self->fd, res->ai_addr, res->ai_addrlen);
+    int r = lwip_connect(self->fd, res->ai_addr, res->ai_addrlen);
     MP_THREAD_GIL_ENTER();
     lwip_freeaddrinfo(res);
     if (r != 0) {
@@ -363,7 +363,7 @@ STATIC mp_obj_t socket_setsockopt(size_t n_args, const mp_obj_t *args) {
         // level: SOL_SOCKET
         case SO_REUSEADDR: {
             int val = mp_obj_get_int(args[3]);
-            int ret = lwip_setsockopt_r(self->fd, SOL_SOCKET, opt, &val, sizeof(int));
+            int ret = lwip_setsockopt(self->fd, SOL_SOCKET, opt, &val, sizeof(int));
             if (ret != 0) {
                 exception_from_errno(errno);
             }
@@ -424,9 +424,9 @@ void _socket_settimeout(socket_obj_t *sock, uint64_t timeout_ms) {
         .tv_sec = 0,
         .tv_usec = timeout_ms ? SOCKET_POLL_US : 0
     };
-    lwip_setsockopt_r(sock->fd, SOL_SOCKET, SO_SNDTIMEO, (const void *)&timeout, sizeof(timeout));
-    lwip_setsockopt_r(sock->fd, SOL_SOCKET, SO_RCVTIMEO, (const void *)&timeout, sizeof(timeout));
-    lwip_fcntl_r(sock->fd, F_SETFL, timeout_ms ? 0 : O_NONBLOCK);
+    lwip_setsockopt(sock->fd, SOL_SOCKET, SO_SNDTIMEO, (const void *)&timeout, sizeof(timeout));
+    lwip_setsockopt(sock->fd, SOL_SOCKET, SO_RCVTIMEO, (const void *)&timeout, sizeof(timeout));
+    lwip_fcntl(sock->fd, F_SETFL, timeout_ms ? 0 : O_NONBLOCK);
 }
 
 STATIC mp_obj_t socket_settimeout(const mp_obj_t arg0, const mp_obj_t arg1) {
@@ -459,7 +459,7 @@ STATIC mp_uint_t _socket_read_data(mp_obj_t self_in, void *buf, size_t size,
     socket_obj_t *sock = MP_OBJ_TO_PTR(self_in);
 
     // If the peer closed the connection then the lwIP socket API will only return "0" once
-    // from lwip_recvfrom_r and then block on subsequent calls.  To emulate POSIX behaviour,
+    // from lwip_recvfrom and then block on subsequent calls.  To emulate POSIX behaviour,
     // which continues to return "0" for each call on a closed socket, we set a flag when
     // the peer closed the socket.
     if (sock->peer_closed) {
@@ -482,7 +482,7 @@ STATIC mp_uint_t _socket_read_data(mp_obj_t self_in, void *buf, size_t size,
         if (release_gil) {
             MP_THREAD_GIL_EXIT();
         }
-        int r = lwip_recvfrom_r(sock->fd, buf, size, 0, from, from_len);
+        int r = lwip_recvfrom(sock->fd, buf, size, 0, from, from_len);
         if (release_gil) {
             MP_THREAD_GIL_ENTER();
         }
@@ -543,7 +543,7 @@ int _socket_send(socket_obj_t *sock, const char *data, size_t datalen) {
     int sentlen = 0;
     for (int i=0; i<=sock->retries && sentlen < datalen; i++) {
         MP_THREAD_GIL_EXIT();
-        int r = lwip_write_r(sock->fd, data+sentlen, datalen-sentlen);
+        int r = lwip_write(sock->fd, data+sentlen, datalen-sentlen);
         MP_THREAD_GIL_ENTER();
         if (r < 0 && errno != EWOULDBLOCK) exception_from_errno(errno);
         if (r > 0) sentlen += r;
@@ -590,7 +590,7 @@ STATIC mp_obj_t socket_sendto(mp_obj_t self_in, mp_obj_t data_in, mp_obj_t addr_
     // send the data
     for (int i=0; i<=self->retries; i++) {
         MP_THREAD_GIL_EXIT();
-        int ret = lwip_sendto_r(self->fd, bufinfo.buf, bufinfo.len, 0, (struct sockaddr*)&to, sizeof(to));
+        int ret = lwip_sendto(self->fd, bufinfo.buf, bufinfo.len, 0, (struct sockaddr*)&to, sizeof(to));
         MP_THREAD_GIL_ENTER();
         if (ret > 0) return mp_obj_new_int_from_uint(ret);
         if (ret == -1 && errno != EWOULDBLOCK) {
@@ -622,7 +622,7 @@ STATIC mp_uint_t socket_stream_write(mp_obj_t self_in, const void *buf, mp_uint_
     socket_obj_t *sock = self_in;
     for (int i=0; i<=sock->retries; i++) {
         MP_THREAD_GIL_EXIT();
-        int r = lwip_write_r(sock->fd, buf, size);
+        int r = lwip_write(sock->fd, buf, size);
         MP_THREAD_GIL_ENTER();
         if (r > 0) return r;
         if (r < 0 && errno != EWOULDBLOCK) { *errcode = errno; return MP_STREAM_ERROR; }
@@ -663,7 +663,7 @@ STATIC mp_uint_t socket_stream_ioctl(mp_obj_t self_in, mp_uint_t request, uintpt
                 socket->events_callback = MP_OBJ_NULL;
             }
             #endif
-            int ret = lwip_close_r(socket->fd);
+            int ret = lwip_close(socket->fd);
             if (ret != 0) {
                 *errcode = errno;
                 return MP_STREAM_ERROR;
