@@ -42,7 +42,7 @@ async def gather(*aws, return_exceptions=False):
             #        # cancel all waiting tasks
             #        raise er
             ts[i] = await ts[i]
-        except Exception as er:
+        except core._excs_all as er:
             if return_exceptions:
                 ts[i] = er
             else:

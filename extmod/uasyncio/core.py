@@ -23,6 +23,10 @@ class TimeoutError(Exception):
     pass
 
 
+# Classes of exceptions to catch, created here To prevent heap allocation later
+_excs_all = (CancelledError, Exception)
+_excs_stop = (CancelledError, StopIteration)
+
 # Used when calling Loop.call_exception_handler
 _exc_context = {"message": "Task exception wasn't retrieved", "exception": None, "future": None}
 
@@ -156,8 +160,6 @@ def create_task(coro):
 # Keep scheduling tasks until there are none left to schedule
 def run_until_complete(main_task=None):
     global cur_task
-    excs_all = (CancelledError, Exception)  # To prevent heap allocation in loop
-    excs_stop = (CancelledError, StopIteration)  # To prevent heap allocation in loop
     while True:
         # Wait until the head of _task_queue is ready to run
         dt = 1
@@ -184,7 +186,7 @@ def run_until_complete(main_task=None):
             else:
                 t.data = None
                 t.coro.throw(exc)
-        except excs_all as er:
+        except _excs_all as er:
             # Check the task is not on any event queue
             assert t.data is None
             # This task is done, check if it's the main task and then loop should stop
@@ -202,7 +204,7 @@ def run_until_complete(main_task=None):
                     waiting = True
                 t.waiting = None  # Free waiting queue head
             # Print out exception for detached tasks
-            if not waiting and not isinstance(er, excs_stop):
+            if not waiting and not isinstance(er, _excs_stop):
                 _exc_context["exception"] = er
                 _exc_context["future"] = t
                 Loop.call_exception_handler(_exc_context)
