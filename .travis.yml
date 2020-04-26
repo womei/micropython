@@ -93,7 +93,9 @@ jobs:
         - qemu-system-arm --version
       script:
         - make ${MAKEOPTS} -C mpy-cross
-        - make ${MAKEOPTS} -C ports/qemu-arm -f Makefile.test test
+        - make ${MAKEOPTS} -C ports/qemu-arm -f Makefile.test test || travis_terminate 1
+        - make ${MAKEOPTS} -C ports/qemu-arm -f Makefile.test clean
+        - make ${MAKEOPTS} -C ports/qemu-arm -f Makefile.test BOARD=sabrelite test
       after_failure:
         - grep --text "FAIL" ports/qemu-arm/build/console.out
 
