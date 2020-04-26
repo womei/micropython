@@ -86,6 +86,9 @@ exclude_tests = (
     "inlineasm/asmfpldrstr.py",
     "inlineasm/asmfpmuldiv.py",
     "inlineasm/asmfpsqrt.py",
+    # these don't work on Cortex-A9; TODO fix, or make this exclusion configurable on command line
+    "inlineasm/asmdiv.py",
+    "inlineasm/asmspecialregs.py",
     # different filename in output
     "micropython/emg_exc.py",
     "micropython/heapalloc_traceback.py",
