@@ -44,15 +44,20 @@ void asm_arm_end_pass(asm_arm_t *as) {
         char *start = mp_asm_base_get_code(&as->base);
         char *end = start + mp_asm_base_get_code_size(&as->base);
         __builtin___clear_cache(start, end);
-        #elif defined(__arm__)
+        #elif __ARM_ARCH == 5
         // flush I- and D-cache
         asm volatile (
             "0:"
-            "mrc p15, 0, r15, c7, c10, 3\n"
+            "mrc p15, 0, r15, c7, c10, 3\n" // test and clean D-cache
             "bne 0b\n"
             "mov r0, #0\n"
-            "mcr p15, 0, r0, c7, c7, 0\n"
+            "mcr p15, 0, r0, c7, c7, 0\n" // invalidate I-cache and D-cache
             : : : "r0", "cc");
+        #else
+        // flush D-cache, so the code emitted is stored in memory
+        // MP_HAL_CLEAN_DCACHE(as->base.code_base, as->base.code_size);
+        // invalidate I-cache
+        // MP_HAL_INVALIDATE_ICACHE();
         #endif
     }
 }
