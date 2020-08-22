@@ -26,9 +26,18 @@ class Stream:
         # TODO yield?
         self.s.close()
 
-    async def read(self, n):
-        yield core._io_queue.queue_read(self.s)
-        return self.s.read(n)
+    async def read(self, n=-1):
+        r = b""
+        while True:
+            yield core._io_queue.queue_read(self.s)
+            r2 = self.s.read(n)
+            if r2 is not None:
+                if n >= 0:
+                    return r2
+                else:
+                    if not len(r2):
+                        return r
+                    r += r2
 
     async def readexactly(self, n):
         r = b""
