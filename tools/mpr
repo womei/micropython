@@ -371,23 +371,19 @@ fs_hook_code = re.sub("buf4", "b4", fs_hook_code)
 
 
 def find_serial_device(dev):
+    ports = serial.tools.list_ports.comports()
     if dev is None:
-        for d in device_shortcuts.values():
-            try:
-                os.stat(d)
-            except OSError:
-                continue
-            return d
+        for dev in device_shortcuts.values():
+            if any(p.device == dev for p in ports):
+                return dev
         print("no device found")
         sys.exit(1)
     else:
         dev = device_shortcuts.get(dev, dev)
-        try:
-            os.stat(dev)
-        except OSError:
-            print(f"{dev} could not be accessed")
-            sys.exit(1)
-        return dev
+        if any(p.device == dev for p in ports):
+            return dev
+        print(f"{dev} could not be accessed")
+        sys.exit(1)
 
 
 class ConsolePosix:
@@ -441,6 +437,7 @@ class ConsoleWindows:
                 if not msvcrt.kbhit():
                     return None
                 ch = msvcrt.getch()  # second call returns the actual key code
+                ch = b"\x1b[" + {b"H": b"A", b"P": b"B", b"M": b"C", b"K": b"D"}[ch]
             return ch
 
     def write(self, buf):
