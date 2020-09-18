@@ -57,6 +57,7 @@ command_aliases = {
     "cp": "fs cp",
     "rm": "fs rm",
     "mkdir": "fs mkdir",
+    "rmdir": "fs rmdir",
     "cat": "fs cat",
     "bl": [
         "exec",
@@ -884,7 +885,7 @@ def main():
         # auto-detect and auto-connect
         dev = find_serial_device(None)
 
-    pyb = PyboardExtended(dev)
+    pyb = PyboardExtended(dev, baudrate=115200)
     in_raw_repl = False
     did_action = False
 
@@ -929,10 +930,12 @@ def main():
                 pyb.mount_local(path)
                 print(f"Local directory {path} is mounted at /remote")
             elif cmd == "exec":
-                if ret := execbuffer(pyb, args.pop(0)):
+                ret = execbuffer(pyb, args.pop(0))
+                if ret:
                     return ret
             elif cmd == "eval":
-                if ret := execbuffer(pyb, "print(" + args.pop(0) + ")"):
+                ret = execbuffer(pyb, "print(" + args.pop(0) + ")")
+                if ret:
                     return ret
             elif cmd == "fs":
                 pyboard.filesystem_command(pyb, args)
@@ -947,7 +950,8 @@ def main():
                 except OSError:
                     print(f"mpr: could not read file '{filename}'")
                     return 1
-                if ret := execbuffer(pyb, buf):
+                ret = execbuffer(pyb, buf)
+                if ret:
                     return ret
 
         if not did_action:
